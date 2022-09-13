@@ -25,6 +25,19 @@ win = pygame.display.set_mode(SCREEN_SIZE)
 pygame.display.set_caption(CAPTION)
 clock = pygame.time.Clock()
 
+# mat class
+
+class Mat():
+    def __init__(self) -> None:
+        pass
+
+# stage class
+
+class Stage():
+    def __init__(self) -> None:
+        self.length = 10
+        self.mats = [Mat() for i in range(self.length)]
+
 # connection function
 
 def conn():
