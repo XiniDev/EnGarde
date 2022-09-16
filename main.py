@@ -1,5 +1,6 @@
 from sys import exit
 import socket
+from this import d
 
 import pygame
 
@@ -25,7 +26,7 @@ win = pygame.display.set_mode(SCREEN_SIZE)
 pygame.display.set_caption(CAPTION)
 clock = pygame.time.Clock()
 
-# mat class
+# mat class (piste is made out of multiple mats)
 
 class Mat():
     def __init__(self) -> None:
@@ -35,8 +36,18 @@ class Mat():
 
 class Stage():
     def __init__(self) -> None:
-        self.length = 10
-        self.mats = [Mat() for i in range(self.length)]
+        self.length = 8
+        self.piste = [Mat() for i in range(self.length)]
+
+    def update(self) -> None:
+        pass
+    
+    def render_mats(self) -> None:
+        # X_CENTER = WIDTH / 2
+        # Y_CENTER = HEIGHT / 2
+        # for i in range(self.length):
+            # win.blit(img, (), ())
+        pass
 
 # connection function
 
