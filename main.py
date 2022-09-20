@@ -40,13 +40,19 @@ class Stage():
         self.piste = [Mat() for i in range(self.length)]
 
     def update(self) -> None:
+        self.render_mats()
         pass
     
     def render_mats(self) -> None:
-        # X_CENTER = WIDTH / 2
-        # Y_CENTER = HEIGHT / 2
-        # for i in range(self.length):
-            # win.blit(img, (), ())
+        X_CENTER = WIDTH / 2
+        Y_CENTER = HEIGHT / 2
+        LENGTH = 10 * SCALE            # temp length until i make mat sprite :)
+        SPACING = 5 * SCALE
+        for i in range(self.length):
+            # win.blit(img, (), ())     # sprite holder
+            pygame.draw.rect(win, (255, 0, 0), (X_CENTER - 2, Y_CENTER - 2, 4, 4))        # true center
+            pygame.draw.rect(
+                win, (255, 255, 255), (X_CENTER + SPACING / 2 + ((LENGTH + SPACING) * (-1 if i % 2 == 1 else 1) * ((i + 1) // 2)), Y_CENTER, LENGTH, 5))
         pass
 
 # connection function
@@ -61,6 +67,8 @@ def conn():
 # main function
 
 def main():
+
+    stage = Stage()
 
     # game loop
 
@@ -78,6 +86,8 @@ def main():
         if (keys[pygame.K_LSHIFT] and keys[pygame.K_c]):
             if client == None:
                 conn()
+
+        stage.update()        
 
         clock.tick(FPS)
         pygame.display.update()
