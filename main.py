@@ -1,3 +1,4 @@
+from multiprocessing.sharedctypes import Value
 from sys import exit
 import socket
 
@@ -85,6 +86,90 @@ class Player():
         self.pos_x = self.set_pos_x()
         self.render_player()
 
+ACTION_SYMBOLS = ['X', 'B', '_', '-', '>', '<', '^', '$']
+ALL_MOVES = {
+    "Lunge" : "--X>__",
+    "Parry" : "BBB$",
+    "Riposte" : "BB__X_",
+    "Thrust" : "-X__",
+    "Flèche" : "---X^___",
+    "Fake" : "--",
+    "Dodge" : "_<",
+    "Move" : "_>"
+}
+
+class Action():
+    def __init__(self, symbol: str) -> None:
+        self.symbol = None
+        try:
+            if symbol in ACTION_SYMBOLS:
+                self.symbol = symbol
+            else:
+                raise ValueError('Actions must have a valid symbol')
+        except ValueError as exp:
+            print("An action used an invalid symbol: {}\n{}".format(symbol, exp))
+            exit(1)
+
+    def resolve(self) -> None:
+        pass
+
+class Move():
+    def __init__(self, name: str, slots: int, move_str: str) -> None:
+        self.name = None
+        try:
+            if name in ALL_MOVES:
+                self.name = name
+            else:
+                raise ValueError('Moves must have a valid name')
+        except ValueError as exp:
+            print("The move: {} does not have a valid name\n{}".format(name, exp))
+            exit(1)
+        self.slots = 0
+        try:
+            if slots == len(ALL_MOVES.get(self.name)):
+                self.slots = slots
+            else:
+                raise ValueError('Moves must take up the correct number of slots')
+        except ValueError as exp:
+            print("The move: {} should not take up {} slots\n{}".format(name, slots, exp))
+            exit(1)
+        self.actions = None
+        try:
+            if len(move_str) == slots:
+                try:
+                    if move_str == ALL_MOVES.get(self.name):
+                        self.actions = [Action(move_str[i]) for i in range(self.slots)]
+                    else:
+                        raise ValueError('Moves must have valid actions')
+                except ValueError as exp:
+                    print("The move: {} have invalid actions \n{}".format(name, exp))
+                    exit(1)
+            else:
+                raise ValueError('Moves must have same number of actions as the slots it takes up')
+        except ValueError as exp:
+            print("The move: {} has a length of {} but must take up {} slots\n{}".format(name, len(move_str), slots, exp))
+            exit(1)
+
+
+# game functions 
+
+turn = 1            # global turn variable (indicates which turn the game is on right now)
+action = 1          # global action variable (indicates which action slot the game is on right now)
+
+def next_turn():
+    global turn
+    turn += 1
+
+def run_turn():
+    global action, turn
+    if action < 6:
+        action += 1
+    else:
+        action = 1
+        next_turn()
+    print(action, turn)
+
+
 # connection function
 
 def conn():
@@ -101,6 +186,8 @@ def main():
     stage = Stage()
     player1 = Player(True)
     player2 = Player(False)
+    # move = Move("Lunge", 6, "--X>__")
+    # action = Action('X')
 
     # game loop
 
