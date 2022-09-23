@@ -1,6 +1,7 @@
-from multiprocessing.sharedctypes import Value
 from sys import exit
 import socket
+
+import random
 
 import pygame
 
@@ -150,29 +151,103 @@ class Move():
             print("The move: {} has a length of {} but must take up {} slots\n{}".format(name, len(move_str), slots, exp))
             exit(1)
 
+# card engine class
+
+class Card_Engine():
+    def __init__(self) -> None:
+        self.DECK_MAX = 8
+        self.HAND_MAX = 3
+        self.deck = []
+        self.hand = []
+    
+    def update(self) -> None:
+        win.blit(pygame.font.SysFont('Comic Sans MS', 30).render("Move: " + str(self.hand[0].name), False, (255, 255, 255)), (100, 500))
+        win.blit(pygame.font.SysFont('Comic Sans MS', 30).render("Move: " + str(self.hand[1].name), False, (255, 255, 255)), (400, 500))
+        win.blit(pygame.font.SysFont('Comic Sans MS', 30).render("Move: " + str(self.hand[2].name), False, (255, 255, 255)), (700, 500))
+
+    def reset(self) -> None:
+        self.deck = []
+        self.hand = []
+    
+    def start(self) -> None:
+        self.reset()
+        self.deck_add_moves([Move("Lunge", 6, "--X>__"), Move("Parry", 4, "BBB$"), Move("Riposte", 6, "BB__X_"), Move("Thrust", 4, "-X__"), Move("Flèche", 8, "---X^___"), Move("Fake", 2, "--"), Move("Dodge", 2, "_<"), Move("Move", 2, "_>")])
+        self.deck_shuffle()
+        self.draw_moves()
+        print(self.hand)
+
+    def deck_size_check(self, addition: int) -> bool:
+        if len(self.deck) + addition <= self.DECK_MAX:
+            return True
+        else:
+            return False
+
+    def deck_add_move(self, move: Move) -> bool:
+        if self.deck_size_check(1):
+            self.deck.append(move)
+            return True
+        else:
+            return False
+
+    def deck_add_moves(self, moves: list[Move]) -> bool:
+        if self.deck_size_check(len(moves)):
+            self.deck.extend(moves)
+            return True
+        else:
+            return False
+
+    def deck_shuffle(self) -> None:
+        random.shuffle(self.deck)
+
+    def draw_move(self) -> None:
+        move = self.deck.pop(0)
+        if len(self.hand) == self.HAND_MAX - 1:
+            self.hand.append(move)
+
+    def draw_moves(self) -> None:
+        moves = []
+        for i in range(self.HAND_MAX):
+            moves.append(self.deck.pop(0))
+        if len(self.hand) == self.HAND_MAX - 3:
+            self.hand.extend(moves)
+
+    def play_move(self, move_id: int) -> Move:       # three moves to choose from, after select one with mouse, it should give the number of the item in the hand
+        move = self.hand[move_id]
+        self.hand[move_id] = self.deck.pop(0)
+        self.deck.append(move)
+        return move
+
 
 # game functions 
 
+ACTIONS_MAX = 6
 turn = 1            # global turn variable (indicates which turn the game is on right now)
 action = 1          # global action variable (indicates which action slot the game is on right now)
 
-def next_turn():
+def next_turn() -> None:
     global turn
     turn += 1
 
-def run_turn():
+def next_action() -> None:
     global action, turn
-    if action < 6:
+    if action < ACTIONS_MAX:
         action += 1
     else:
         action = 1
         next_turn()
     print(action, turn)
 
+def run_turn():
+    for i in range(ACTIONS_MAX):
+        next_action()
+
+def display_turn() -> None:
+    win.blit(pygame.font.SysFont('Comic Sans MS', 30).render("Turn " + str(turn), False, (255, 255, 255)), (0, 0))
+
 
 # connection function
 
-def conn():
+def conn() -> None:
 
     # connect to server
     global client
@@ -183,6 +258,7 @@ def conn():
 
 def main():
 
+    card_engine = Card_Engine()
     stage = Stage()
     player1 = Player(True)
     player2 = Player(False)
@@ -190,6 +266,8 @@ def main():
     # action = Action('X')
 
     # game loop
+
+    card_engine.start()
 
     while True:
         for event in pygame.event.get():
@@ -199,6 +277,10 @@ def main():
                 pygame.quit()
                 exit()
 
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                card_engine.play_move(0)
+                run_turn()
+
         win.fill((0, 0, 0))
 
         keys = pygame.key.get_pressed()
@@ -206,6 +288,8 @@ def main():
             if client == None:
                 conn()
 
+        display_turn()
+        card_engine.update()
         stage.update()
         player1.update()
         player2.update()
