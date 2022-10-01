@@ -1,3 +1,4 @@
+from re import A
 from sys import exit
 import socket
 
@@ -21,6 +22,9 @@ HEIGHT = 90 * SCALE
 FPS = 60
 SCREEN_SIZE = (WIDTH, HEIGHT)
 
+X_CENTER = WIDTH / 2
+Y_CENTER = HEIGHT / 2
+
 pygame.init()
 
 win = pygame.display.set_mode(SCREEN_SIZE)
@@ -42,11 +46,9 @@ class Stage():
 
     def update(self) -> None:
         self.render_mats()
-        pygame.draw.rect(win, (255, 0, 0), (WIDTH / 2 - 2, HEIGHT / 2 - 2, 4, 4))        # true center
+        pygame.draw.rect(win, (255, 0, 0), (X_CENTER - 2, Y_CENTER - 2, 4, 4))        # true center
     
     def render_mats(self) -> None:
-        X_CENTER = WIDTH / 2
-        Y_CENTER = HEIGHT / 2
         LENGTH = 10 * SCALE            # temp length until i make mat sprite :)
         SPACING = 5 * SCALE
         for i in range(self.piste_length):
@@ -64,7 +66,7 @@ class Player():
         self.width = 10 * SCALE
         self.height = 10 * SCALE
         self.pos_x = self.set_pos_x()
-        self.pos_y = HEIGHT / 2 - SCALE - self.height
+        self.pos_y = Y_CENTER - SCALE - self.height
 
     def update(self) -> None:
         steps = 0
@@ -77,7 +79,7 @@ class Player():
         self.pos_update(steps)
 
     def set_pos_x(self) -> int:
-        return self.mat_pos * (10 * SCALE + 40) + WIDTH / 2 - self.width / 2
+        return self.mat_pos * (10 * SCALE + 40) + X_CENTER - self.width / 2
 
     def render_player(self) -> None:
         pygame.draw.rect(win, (0, 255 if self.is_user else 0, 0 if self.is_user else 255), (self.pos_x, self.pos_y, self.width, self.height))
@@ -115,7 +117,7 @@ class Action():
         pass
 
 class Move():
-    def __init__(self, name: str, slots: int, move_str: str) -> None:
+    def __init__(self, name: str, move_str: str) -> None:
         self.name = None
         try:
             if name in ALL_MOVES:
@@ -125,31 +127,32 @@ class Move():
         except ValueError as exp:
             print("The move: {} does not have a valid name\n{}".format(name, exp))
             exit(1)
-        self.slots = 0
-        try:
-            if slots == len(ALL_MOVES.get(self.name)):
-                self.slots = slots
-            else:
-                raise ValueError('Moves must take up the correct number of slots')
-        except ValueError as exp:
-            print("The move: {} should not take up {} slots\n{}".format(name, slots, exp))
-            exit(1)
+        # self.slots = 0
+        # try:
+        #     if slots == len(ALL_MOVES.get(self.name)):
+        #         self.slots = slots
+        #     else:
+        #         raise ValueError('Moves must take up the correct number of slots')
+        # except ValueError as exp:
+        #     print("The move: {} should not take up {} slots\n{}".format(name, slots, exp))
+        #     exit(1)
         self.actions = None
+        # try:
+        #     if len(move_str) == slots:
         try:
-            if len(move_str) == slots:
-                try:
-                    if move_str == ALL_MOVES.get(self.name):
-                        self.actions = [Action(move_str[i]) for i in range(self.slots)]
-                    else:
-                        raise ValueError('Moves must have valid actions')
-                except ValueError as exp:
-                    print("The move: {} have invalid actions \n{}".format(name, exp))
-                    exit(1)
+            if move_str == ALL_MOVES.get(self.name):
+                self.actions = [Action(move_str[i]) for i in range(len(move_str))]
             else:
-                raise ValueError('Moves must have same number of actions as the slots it takes up')
+                raise ValueError('Moves must have valid actions')
         except ValueError as exp:
-            print("The move: {} has a length of {} but must take up {} slots\n{}".format(name, len(move_str), slots, exp))
+            print("The move: {} have invalid actions \n{}".format(name, exp))
             exit(1)
+        #     else:
+        #         raise ValueError('Moves must have same number of actions as the slots it takes up')
+        # except ValueError as exp:
+        #     print("The move: {} has a length of {} but must take up {} slots\n{}".format(name, len(move_str), slots, exp))
+        #     exit(1)
+        self.slots = len(self.actions)
 
 # card engine class
 
@@ -159,8 +162,18 @@ class Card_Engine():
         self.HAND_MAX = 3
         self.deck = []
         self.hand = []
+        self.cards = [None, None, None]
     
     def update(self) -> None:
+        self.draw()
+    
+    def draw(self) -> None:
+        card_button = pygame.Surface((200, 100))
+        card_button.fill((128, 128, 128))
+        self.cards[0] = win.blit(card_button, (100, 500))
+        self.cards[1] = win.blit(card_button, (400, 500))
+        self.cards[2] = win.blit(card_button, (700, 500))
+
         win.blit(pygame.font.SysFont('Comic Sans MS', 30).render("Move: " + str(self.hand[0].name), False, (255, 255, 255)), (100, 500))
         win.blit(pygame.font.SysFont('Comic Sans MS', 30).render("Move: " + str(self.hand[1].name), False, (255, 255, 255)), (400, 500))
         win.blit(pygame.font.SysFont('Comic Sans MS', 30).render("Move: " + str(self.hand[2].name), False, (255, 255, 255)), (700, 500))
@@ -171,7 +184,7 @@ class Card_Engine():
     
     def start(self) -> None:
         self.reset()
-        self.deck_add_moves([Move("Lunge", 6, "--X>__"), Move("Parry", 4, "BBB$"), Move("Riposte", 6, "BB__X_"), Move("Thrust", 4, "-X__"), Move("Flèche", 8, "---X^___"), Move("Fake", 2, "--"), Move("Dodge", 2, "_<"), Move("Move", 2, "_>")])
+        self.deck_add_moves([Move("Lunge", "--X>__"), Move("Parry", "BBB$"), Move("Riposte", "BB__X_"), Move("Thrust", "-X__"), Move("Flèche", "---X^___"), Move("Fake", "--"), Move("Dodge", "_<"), Move("Move", "_>")])
         self.deck_shuffle()
         self.draw_moves()
         print(self.hand)
@@ -218,31 +231,82 @@ class Card_Engine():
         return move
 
 
-# game functions 
+# game engine class
 
 ACTIONS_MAX = 6
-turn = 1            # global turn variable (indicates which turn the game is on right now)
-action = 1          # global action variable (indicates which action slot the game is on right now)
 
-def next_turn() -> None:
-    global turn
-    turn += 1
+class Game_Engine():
+    def __init__(self) -> None:
+        self.turn = 1               # turn variable (indicates which turn the game is on right now)
+        self.action = 1                  # action variable (indicates which action slot the game is on right now)
+        self.frames = 0                  # test for future animation frames temp variable basically
+        self.running_turn = False        # run turn variable
 
-def next_action() -> None:
-    global action, turn
-    if action < ACTIONS_MAX:
-        action += 1
-    else:
-        action = 1
-        next_turn()
-    print(action, turn)
+        self.available_slots = 6
 
-def run_turn():
-    for i in range(ACTIONS_MAX):
-        next_action()
+        self.curr_actions = []
+        self.futr_actions = []
 
-def display_turn() -> None:
-    win.blit(pygame.font.SysFont('Comic Sans MS', 30).render("Turn " + str(turn), False, (255, 255, 255)), (0, 0))
+    def next_turn(self) -> None:
+        self.turn += 1
+
+    def next_action(self) -> None:
+        if self.action < ACTIONS_MAX:
+            self.action += 1
+        else:
+            self.action = 1
+            self.next_turn()
+            self.running_turn = False
+            self.curr_actions = self.futr_actions
+            self.futr_actions = []
+        print(self.action, self.turn)
+
+    def run_turn_enable(self) -> None:
+        self.running_turn = True
+
+    def is_turn_running(self) -> bool:
+        return self.running_turn
+
+    def run_turn(self) -> None:
+        if self.running_turn == True:
+            if self.frames == 30:
+                self.frames = 0
+                self.next_action()
+            else:
+                self.frames += 1
+
+    def display_turn(self) -> None:
+        win.blit(pygame.font.SysFont('Comic Sans MS', 30).render("Turn " + str(self.turn), False, (255, 255, 255)), (0, 0))
+
+    def display_actions(self) -> None:
+        # actions holder
+        pygame.draw.rect(win, (128, 128, 128), (X_CENTER - 600, 50, 300, 50))
+        pygame.draw.rect(win, (128, 128, 128), (X_CENTER + 300, 50, 300, 50))
+
+        # action holder
+        pygame.draw.rect(win, (200, 0, 0), (X_CENTER - 600 + 50 * (self.action - 1), 50, 50, 50))
+        pygame.draw.rect(win, (200, 0, 0), (X_CENTER + 300 + 50 * (self.action - 1), 50, 50, 50))
+
+        # action symbols
+        for index, action in enumerate(self.curr_actions):
+            win.blit(pygame.font.SysFont('Comic Sans MS', 30).render(action.symbol, False, (255, 255, 255)), (X_CENTER - 600 + 50 * index + 15, 50))
+    
+    def move_selection(self, card_engine: Card_Engine) -> None:
+        move = None
+        for i in range(3):
+            if card_engine.cards[i].collidepoint(pygame.mouse.get_pos()):
+                move = card_engine.play_move(i)
+                for j in range(len(move.actions)):
+                    if len(self.curr_actions) < 6:
+                        self.curr_actions.append(move.actions[j])
+                    else:
+                        self.futr_actions.append(move.actions[j])
+                if move.slots >= self.available_slots:
+                    self.run_turn_enable()
+                    self.available_slots = 6 - (move.slots - self.available_slots)
+                else:
+                    self.available_slots = self.available_slots - move.slots
+                print(f"Available Slots: {self.available_slots}")
 
 
 # connection function
@@ -258,6 +322,7 @@ def conn() -> None:
 
 def main():
 
+    game_engine = Game_Engine()
     card_engine = Card_Engine()
     stage = Stage()
     player1 = Player(True)
@@ -277,9 +342,8 @@ def main():
                 pygame.quit()
                 exit()
 
-            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                card_engine.play_move(0)
-                run_turn()
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and game_engine.is_turn_running() == False:
+                game_engine.move_selection(card_engine)
 
         win.fill((0, 0, 0))
 
@@ -288,7 +352,9 @@ def main():
             if client == None:
                 conn()
 
-        display_turn()
+        game_engine.display_turn()
+        game_engine.display_actions()
+        game_engine.run_turn()
         card_engine.update()
         stage.update()
         player1.update()
