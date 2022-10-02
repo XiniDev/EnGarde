@@ -1,4 +1,3 @@
-from re import A
 from sys import exit
 import socket
 
@@ -55,39 +54,6 @@ class Stage():
             # win.blit(img, (), ())     # sprite holder
             pygame.draw.rect(
                 win, (255, 255, 255), (X_CENTER - LENGTH / 2 + ((LENGTH + SPACING) * (-1 if i % 2 == 1 else 1) * ((i + 1) // 2)), Y_CENTER, LENGTH, 5))
-
-# player class
-
-class Player():
-    def __init__(self, is_user) -> None:
-        self.is_user = is_user
-        self.mat_pos = -1 if self.is_user else 1
-
-        self.width = 10 * SCALE
-        self.height = 10 * SCALE
-        self.pos_x = self.set_pos_x()
-        self.pos_y = Y_CENTER - SCALE - self.height
-
-    def update(self) -> None:
-        steps = 0
-        # steps test
-        # keys = pygame.key.get_pressed()
-        # if (keys[pygame.K_a]):
-        #     steps = -1
-        # if (keys[pygame.K_d]):
-        #     steps = 1
-        self.pos_update(steps)
-
-    def set_pos_x(self) -> int:
-        return self.mat_pos * (10 * SCALE + 40) + X_CENTER - self.width / 2
-
-    def render_player(self) -> None:
-        pygame.draw.rect(win, (0, 255 if self.is_user else 0, 0 if self.is_user else 255), (self.pos_x, self.pos_y, self.width, self.height))
-
-    def pos_update(self, steps) -> None:
-        self.mat_pos += steps
-        self.pos_x = self.set_pos_x()
-        self.render_player()
 
 ACTION_SYMBOLS = ['X', 'B', '_', '-', '>', '<', '^', '$']
 ALL_MOVES = {
@@ -231,49 +197,107 @@ class Card_Engine():
         return move
 
 
+# player class
+
+class Player():
+    def __init__(self, is_user: bool) -> None:
+        self.is_user = is_user
+        self.mat_pos = -1 if self.is_user else 1
+
+        self.width = 10 * SCALE
+        self.height = 10 * SCALE
+        self.pos_x = self.set_pos_x()
+        self.pos_y = Y_CENTER - SCALE - self.height
+
+    def update(self) -> None:
+        self.render_player()
+
+    def set_pos_x(self) -> int:
+        return self.mat_pos * (10 * SCALE + 40) + X_CENTER - self.width / 2
+
+    def render_player(self) -> None:
+        pygame.draw.rect(win, (0, 255 if self.is_user else 0, 0 if self.is_user else 255), (self.pos_x, self.pos_y, self.width, self.height))
+
+    def pos_update(self, steps: int, frames: int, total_frames: int) -> None:
+        if frames == total_frames:
+            self.mat_pos += steps
+            self.pos_x = self.set_pos_x()
+        else:
+            self.pos_x += (steps * (10 * SCALE + 40)) / total_frames
+
+# ai engine class
+
+class AI_Engine():
+    def __init__(self) -> None:
+        pass
+
+    def decision(self) -> list[Action]:
+        return [Action('_'), Action('_'), Action('_'), Action('_'), Action('_'), Action('_')]
+
 # game engine class
 
 ACTIONS_MAX = 6
+TOTAL_CARDS = 3
+ANIMATION_FRAMES = 30
 
 class Game_Engine():
-    def __init__(self) -> None:
-        self.turn = 1               # turn variable (indicates which turn the game is on right now)
-        self.action = 1                  # action variable (indicates which action slot the game is on right now)
-        self.frames = 0                  # test for future animation frames temp variable basically
-        self.running_turn = False        # run turn variable
+    def __init__(self, is_sp: bool) -> None:
+        self.is_sp = is_sp                      # determines if the game is singleplayer or multiplayer
 
-        self.available_slots = 6
+        self.player1 = Player(True)
+        self.player2 = Player(False)
+
+        self.ai = AI_Engine() if self.is_sp else None
+
+        self.turn = 1                           # turn variable (indicates which turn the game is on right now)
+        self.action = 1                         # action variable (indicates which action slot the game is on right now)
+        self.frames = 0                         # test for future animation frames temp variable basically
+
+        self.is_user_done = False               # has user committed their actions
+        self.running_turn = False               # run turn variable
+
+        self.available_slots = ACTIONS_MAX
 
         self.curr_actions = []
         self.futr_actions = []
 
-    def next_turn(self) -> None:
-        self.turn += 1
-
-    def next_action(self) -> None:
-        if self.action < ACTIONS_MAX:
-            self.action += 1
-        else:
-            self.action = 1
-            self.next_turn()
-            self.running_turn = False
-            self.curr_actions = self.futr_actions
-            self.futr_actions = []
-        print(self.action, self.turn)
-
-    def run_turn_enable(self) -> None:
-        self.running_turn = True
-
+        self.opp_actions = []
+    
+    def update(self) -> None:
+        self.display_turn()
+        self.display_actions()
+        self.resolve_turn()
+        self.player1.update()
+        self.player2.update()
+    
     def is_turn_running(self) -> bool:
         return self.running_turn
+    
+    def move_selection(self, card_engine: Card_Engine) -> None:
+        move = None
+        for i in range(TOTAL_CARDS):
+            if card_engine.cards[i].collidepoint(pygame.mouse.get_pos()):
+                move = card_engine.play_move(i)
+                self.append_actions(move)
+                self.run_turn(move)
+                print(f"Available Slots: {self.available_slots}")
 
-    def run_turn(self) -> None:
-        if self.running_turn == True:
-            if self.frames == 30:
-                self.frames = 0
-                self.next_action()
+    def append_actions(self, move: Move) -> None:
+        for j in range(len(move.actions)):
+            if len(self.curr_actions) < ACTIONS_MAX:
+                self.curr_actions.append(move.actions[j])
             else:
-                self.frames += 1
+                self.futr_actions.append(move.actions[j])
+
+    def run_turn(self, move: Move) -> None:
+        if move.slots >= self.available_slots:
+            self.available_slots = ACTIONS_MAX - (move.slots - self.available_slots)
+            self.user_done()
+        else:
+            self.available_slots = self.available_slots - move.slots
+
+    def user_done(self) -> None:
+        self.is_user_done = True
 
     def display_turn(self) -> None:
         win.blit(pygame.font.SysFont('Comic Sans MS', 30).render("Turn " + str(self.turn), False, (255, 255, 255)), (0, 0))
@@ -290,24 +314,87 @@ class Game_Engine():
         # action symbols
         for index, action in enumerate(self.curr_actions):
             win.blit(pygame.font.SysFont('Comic Sans MS', 30).render(action.symbol, False, (255, 255, 255)), (X_CENTER - 600 + 50 * index + 15, 50))
-    
-    def move_selection(self, card_engine: Card_Engine) -> None:
-        move = None
-        for i in range(3):
-            if card_engine.cards[i].collidepoint(pygame.mouse.get_pos()):
-                move = card_engine.play_move(i)
-                for j in range(len(move.actions)):
-                    if len(self.curr_actions) < 6:
-                        self.curr_actions.append(move.actions[j])
-                    else:
-                        self.futr_actions.append(move.actions[j])
-                if move.slots >= self.available_slots:
-                    self.run_turn_enable()
-                    self.available_slots = 6 - (move.slots - self.available_slots)
-                else:
-                    self.available_slots = self.available_slots - move.slots
-                print(f"Available Slots: {self.available_slots}")
 
+    def resolve_turn(self) -> None:
+        if self.running_turn:
+            if self.frames == ANIMATION_FRAMES:
+                self.frames = 0
+                self.next_action()
+            else:
+                self.frames += 1
+                self.resolve_action()
+        elif self.is_user_done:
+            if self.is_sp:
+                # run AI
+                self.opp_actions = self.ai.decision()
+                self.running_turn = True
+            else:
+                # recieve connection signal (if recieve signal -> self.running_turn = True)
+                pass
+
+    def next_action(self) -> None:
+        if self.action < ACTIONS_MAX:
+            self.action += 1
+        else:
+            self.action = 1
+            self.next_turn()
+        print(self.action, self.turn)
+    
+    def next_turn(self) -> None:
+        self.turn += 1
+        self.reset_turn()
+    
+    def reset_turn(self) -> None:
+        self.is_user_done = False
+        self.running_turn = False
+        self.curr_actions = self.futr_actions
+        self.futr_actions = []
+
+    def resolve_action(self) -> None:
+        # STILL NEED TO FIT OPPONENT'S MOVE IN HERE!
+        symbol = self.curr_actions[self.action - 1].symbol
+        # ACTION_SYMBOLS = ['X', 'B', '_', '-', '>', '<', '^', '$']
+        match symbol:
+            case 'X':
+                self.resolve_hit()
+            case 'B':
+                self.resolve_block()
+            case '_':
+                self.resolve_blank()
+            case '-':
+                self.resolve_charge()
+            case '>':
+                self.resolve_forwards()
+            case '<':
+                self.resolve_backwards()
+            case '^':
+                self.resolve_fforwards()
+            case '$':
+                self.resolve_stance()
+    
+    def resolve_hit(self) -> None:
+        pass
+
+    def resolve_block(self) -> None:
+        pass
+
+    def resolve_blank(self) -> None:
+        pass
+
+    def resolve_charge(self) -> None:
+        pass
+
+    def resolve_forwards(self) -> None:
+        self.player1.pos_update(1, self.frames, ANIMATION_FRAMES)
+
+    def resolve_backwards(self) -> None:
+        self.player1.pos_update(-1, self.frames, ANIMATION_FRAMES)
+
+    def resolve_fforwards(self) -> None:
+        self.player1.pos_update(3, self.frames, ANIMATION_FRAMES)
+
+    def resolve_stance(self) -> None:
+        pass
 
 # connection function
 
@@ -322,11 +409,11 @@ def conn() -> None:
 
 def main():
 
-    game_engine = Game_Engine()
+    game_engine = Game_Engine(True)
     card_engine = Card_Engine()
     stage = Stage()
-    player1 = Player(True)
-    player2 = Player(False)
+    # player1 = Player(True)
+    # player2 = Player(False)
     # move = Move("Lunge", 6, "--X>__")
     # action = Action('X')
 
@@ -342,7 +429,7 @@ def main():
                 pygame.quit()
                 exit()
 
-            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and game_engine.is_turn_running() == False:
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and not game_engine.is_turn_running():
                 game_engine.move_selection(card_engine)
 
         win.fill((0, 0, 0))
@@ -352,13 +439,11 @@ def main():
             if client == None:
                 conn()
 
-        game_engine.display_turn()
-        game_engine.display_actions()
-        game_engine.run_turn()
-        card_engine.update()
         stage.update()
-        player1.update()
-        player2.update()
+        card_engine.update()
+        game_engine.update()
+        # player1.update()
+        # player2.update()
 
         clock.tick(FPS)
         pygame.display.update()
