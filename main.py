@@ -55,13 +55,13 @@ class Stage():
             pygame.draw.rect(
                 win, (255, 255, 255), (X_CENTER - LENGTH / 2 + ((LENGTH + SPACING) * (-1 if i % 2 == 1 else 1) * ((i + 1) // 2)), Y_CENTER, LENGTH, 5))
 
-ACTION_SYMBOLS = ['X', 'B', '_', '-', '>', '<', '^', '$']
+ACTION_SYMBOLS = ['x', 'X', 'b', 'B', '_', '-', '>', '<']
 ALL_MOVES = {
-    "Lunge" : "--X>__",
-    "Parry" : "BBB$",
-    "Riposte" : "BB__X_",
-    "Thrust" : "-X__",
-    "Flèche" : "---X^___",
+    "Lunge" : "-->X__",
+    "Parry" : "BBBB",
+    "Riposte" : "bb__x_",
+    "Thrust" : "-x__",
+    "Flèche" : "-->XX___",
     "Fake" : "--",
     "Dodge" : "_<",
     "Move" : "_>"
@@ -150,7 +150,7 @@ class Card_Engine():
     
     def start(self) -> None:
         self.reset()
-        self.deck_add_moves([Move("Lunge", "--X>__"), Move("Parry", "BBB$"), Move("Riposte", "BB__X_"), Move("Thrust", "-X__"), Move("Flèche", "---X^___"), Move("Fake", "--"), Move("Dodge", "_<"), Move("Move", "_>")])
+        self.deck_add_moves([Move("Lunge", "-->X__"), Move("Parry", "BBBB"), Move("Riposte", "bb__x_"), Move("Thrust", "-x__"), Move("Flèche", "-->XX___"), Move("Fake", "--"), Move("Dodge", "_<"), Move("Move", "_>")])
         self.deck_shuffle()
         self.draw_moves()
         print(self.hand)
@@ -219,6 +219,8 @@ class Player():
         pygame.draw.rect(win, (0, 255 if self.is_user else 0, 0 if self.is_user else 255), (self.pos_x, self.pos_y, self.width, self.height))
 
     def pos_update(self, steps: int, frames: int, total_frames: int) -> None:
+        if not self.is_user:
+            steps *= -1
         if frames == total_frames:
             self.mat_pos += steps
             self.pos_x = self.set_pos_x()
@@ -232,7 +234,7 @@ class AI_Engine():
         pass
 
     def decision(self) -> list[Action]:
-        return [Action('_'), Action('_'), Action('_'), Action('_'), Action('_'), Action('_')]
+        return [Action('_'), Action('<'), Action('_'), Action('_'), Action('_'), Action('_')]
 
 # game engine class
 
@@ -274,13 +276,17 @@ class Game_Engine():
         return self.running_turn
     
     def move_selection(self, card_engine: Card_Engine) -> None:
-        move = None
-        for i in range(TOTAL_CARDS):
-            if card_engine.cards[i].collidepoint(pygame.mouse.get_pos()):
-                move = card_engine.play_move(i)
-                self.append_actions(move)
-                self.run_turn(move)
-                print(f"Available Slots: {self.available_slots}")
+        if self.available_slots <= 0:
+            self.available_slots = ACTIONS_MAX + self.available_slots
+            self.user_done()
+        else:
+            move = None
+            for i in range(TOTAL_CARDS):
+                if card_engine.cards[i].collidepoint(pygame.mouse.get_pos()):
+                    move = card_engine.play_move(i)
+                    self.append_actions(move)
+                    self.run_turn(move)
+                    print(f"Available Slots: {self.available_slots}")
 
     def append_actions(self, move: Move) -> None:
         for j in range(len(move.actions)):
@@ -352,49 +358,63 @@ class Game_Engine():
 
     def resolve_action(self) -> None:
         # STILL NEED TO FIT OPPONENT'S MOVE IN HERE!
-        symbol = self.curr_actions[self.action - 1].symbol
-        # ACTION_SYMBOLS = ['X', 'B', '_', '-', '>', '<', '^', '$']
-        match symbol:
-            case 'X':
-                self.resolve_hit()
-            case 'B':
-                self.resolve_block()
-            case '_':
-                self.resolve_blank()
-            case '-':
-                self.resolve_charge()
-            case '>':
-                self.resolve_forwards()
-            case '<':
-                self.resolve_backwards()
-            case '^':
-                self.resolve_fforwards()
-            case '$':
-                self.resolve_stance()
+        user_symbol = self.curr_actions[self.action - 1].symbol
+        opp_symbol = self.opp_actions[self.action - 1].symbol
+        self.match_symbol(user_symbol, True)
+        self.match_symbol(opp_symbol, False)
     
-    def resolve_hit(self) -> None:
+    def match_symbol(self, symbol: str, is_user: bool):
+        # ACTION_SYMBOLS = ['x', 'X', 'b', 'B', '_', '-', '>', '<']
+        match symbol:
+            case 'x':
+                self.resolve_hit(is_user)
+            case 'X':
+                self.resolve_smash(is_user)
+            case 'b':
+                self.resolve_block(is_user)
+            case 'B':
+                self.resolve_stance(is_user)
+            case '_':
+                self.resolve_blank(is_user)
+            case '-':
+                self.resolve_charge(is_user)
+            case '>':
+                self.resolve_forwards(is_user)
+            case '<':
+                self.resolve_backwards(is_user)
+    
+    def resolve_hit(self, is_user: bool) -> None:
         pass
 
-    def resolve_block(self) -> None:
+    def resolve_smash(self, is_user: bool) -> None:
+        if is_user:
+            self.player1.pos_update(1, self.frames, ANIMATION_FRAMES)
+        else:
+            self.player2.pos_update(1, self.frames, ANIMATION_FRAMES)
+
+    def resolve_block(self, is_user: bool) -> None:
         pass
 
-    def resolve_blank(self) -> None:
+    def resolve_stance(self, is_user: bool) -> None:
         pass
 
-    def resolve_charge(self) -> None:
+    def resolve_blank(self, is_user: bool) -> None:
         pass
 
-    def resolve_forwards(self) -> None:
-        self.player1.pos_update(1, self.frames, ANIMATION_FRAMES)
-
-    def resolve_backwards(self) -> None:
-        self.player1.pos_update(-1, self.frames, ANIMATION_FRAMES)
-
-    def resolve_fforwards(self) -> None:
-        self.player1.pos_update(3, self.frames, ANIMATION_FRAMES)
-
-    def resolve_stance(self) -> None:
+    def resolve_charge(self, is_user: bool) -> None:
         pass
+
+    def resolve_forwards(self, is_user: bool) -> None:
+        if is_user:
+            self.player1.pos_update(1, self.frames, ANIMATION_FRAMES)
+        else:
+            self.player2.pos_update(1, self.frames, ANIMATION_FRAMES)
+
+    def resolve_backwards(self, is_user: bool) -> None:
+        if is_user:
+            self.player1.pos_update(-1, self.frames, ANIMATION_FRAMES)
+        else:
+            self.player2.pos_update(-1, self.frames, ANIMATION_FRAMES)
 
 # connection function
 
