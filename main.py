@@ -253,7 +253,7 @@ class AI_Engine():
         pass
 
     def decision(self) -> list[Action]:
-        return [Action('_'), Action('>'), Action('_'), Action('_'), Action('_'), Action('_')]
+        return [Action('_'), Action('_'), Action('>'), Action('_'), Action('_'), Action('_')]
 
 # game engine class
 
@@ -283,6 +283,7 @@ class Game_Engine():
         self.futr_actions = []
 
         self.opp_actions = []
+        self.opp_actions_past = []
 
         # states variables
         self.distance = self.player[1].mat_pos - self.player[0].mat_pos - 1
@@ -347,6 +348,12 @@ class Game_Engine():
         # action symbols
         for index, action in enumerate(self.curr_actions):
             win.blit(pygame.font.SysFont('Comic Sans MS', 30).render(action.symbol, False, (255, 255, 255)), (X_CENTER - 600 + 50 * index + 15, 50))
+        
+        # opponent action symbols
+        for index, action in enumerate(self.opp_actions):
+            win.blit(pygame.font.SysFont('Comic Sans MS', 30).render(action.symbol, False, (255, 255, 255)), (X_CENTER + 300 + 50 * index + 15, 50))
+        for index, action in enumerate(self.opp_actions_past):
+            win.blit(pygame.font.SysFont('Comic Sans MS', 30).render(action.symbol, False, (255, 255, 255)), (X_CENTER + 300 + 50 * index + 15, 100))
 
     def resolve_turn(self) -> None:
         self.update_distance()
@@ -403,6 +410,8 @@ class Game_Engine():
         self.running_turn = False
         self.curr_actions = self.futr_actions
         self.futr_actions = []
+        self.opp_actions_past = self.opp_actions
+        self.opp_actions = []
     
     def check_action(self) -> None:
         user_symbol = self.curr_actions[self.action - 1].symbol
@@ -503,12 +512,22 @@ class Game_Engine():
 
     def check_charge(self, pid: int) -> None:
         self.resolve[pid] = True
-
-    def resolve_charge(self, pid: int) -> None:
         self.player[pid].charge += 1
 
+    def resolve_charge(self, pid: int) -> None:
+        pass
+
     def check_push(self, pid: int) -> None:
-        self.resolve[pid] = True
+        if self.distance > 1:
+            self.resolve[pid] = True
+        else:
+            if pid == 0:
+                self.resolve[pid] = True
+            if pid == 1:
+                if self.curr_actions[self.action - 1].symbol == '=':
+                    self.resolve[0] = False
+                else:
+                    self.resolve[pid] = True
 
     def resolve_push(self, pid: int) -> None:
         self.player[pid].pos_update(1, self.frames, ANIMATION_FRAMES)
@@ -524,8 +543,7 @@ class Game_Engine():
             if pid == 1:
                 if self.curr_actions[self.action - 1].symbol == '>':
                     self.resolve[0] = False
-                    self.resolve[pid] = False
-                else:
+                elif not self.curr_actions[self.action - 1].symbol == '=':
                     self.resolve[pid] = True
 
     def resolve_forwards(self, pid: int) -> None:
@@ -547,11 +565,12 @@ class Game_Engine():
     def reset_turn(self) -> None:
         self.turn = 1
         self.action = 1
-        self.frames = 0
+        self.frames = -1
         self.available_slots = ACTIONS_MAX
         self.player[0].reset_pos()
         self.player[1].reset_pos()
         self.futr_actions = []
+        self.opp_actions = []
         self.reset_states()
         self.reset_actions()
 
