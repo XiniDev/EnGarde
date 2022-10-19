@@ -2,6 +2,7 @@ from sys import exit
 import socket
 
 import random
+from tkinter import ALL
 
 import pygame
 
@@ -56,7 +57,7 @@ class Stage():
                 win, (255, 255, 255), (X_CENTER - LENGTH / 2 + ((LENGTH + SPACING) * (-1 if i % 2 == 1 else 1) * ((i + 1) // 2)), Y_CENTER, LENGTH, 5))
 
 ACTION_SYMBOLS = ['x', 'X', 'b', 'B', '_', '-', '=', '>', '<']
-ALL_MOVES = {
+ALL_MOVES_STR = {
     "Lunge" : "--=x__",
     "Parry" : "BBBB",
     "Riposte" : "bb__x_",
@@ -66,6 +67,8 @@ ALL_MOVES = {
     "Dodge" : "_<",
     "Move" : "_>"
 }
+
+ALL_MOVES = {}
 
 class Action():
     def __init__(self, symbol: str) -> None:
@@ -78,12 +81,184 @@ class Action():
         except ValueError as exp:
             print("An action used an invalid symbol: {}\n{}".format(symbol, exp))
             exit(1)
+        
+        self.state = {}
 
-    def resolve(self) -> None:
+class Hit(Action):
+    def __init__(self) -> None:
+        super().__init__('x')
+        self.state['score'] = False
+    
+    def reset_states(self) -> None:
+        self.state['score'] = False
+    
+    def check(self, action: Action, distance: int) -> None:
+        self.reset_states()
+        if distance == 0:
+            self.state['score'] = True
+            match action:
+                case Hit():
+                    self.state['score'] = False                 # fix later (charge)
+                case Smash() | Block() | Stance():
+                    self.state['score'] = False
+
+    def resolve(self, action: Action, distance: int) -> None:
+        pass
+
+class Smash(Action):
+    def __init__(self) -> None:
+        super().__init__('X')
+        self.state['score'] = False
+        self.state['move'] = True
+        self.state['push'] = False
+    
+    def reset_states(self) -> None:
+        self.state['score'] = False
+        self.state['move'] = True
+        self.state['push'] = False
+    
+    def check(self, action: Action, distance: int) -> None:
+        self.reset_states()
+        if distance == 0:
+            self.state['push'] = True
+        match action:
+            case Smash():
+                self.state['score'] = False
+                self.state['move'] = False if distance <= 1 else True
+                self.state['push'] = False
+            case Block():
+                self.state['score'] = False
+                self.state['move'] = True
+                self.state['push'] = True if distance == 0 else False
+            case Stance():
+                self.state['score'] = False
+                self.state['move'] = False if distance == 0 else True
+                self.state['push'] = False
+
+    def resolve(self, action: Action, distance: int) -> None:
+        pass
+
+class Block(Action):
+    def __init__(self) -> None:
+        super().__init__('b')
+        # potentially add stutter for smash vs block animation
+    
+    def reset_states(self) -> None:
+        pass
+    
+    def check(self, action: Action, distance: int) -> None:
+        self.reset_states()
+        pass
+
+    def resolve(self, action: Action, distance: int) -> None:
+        pass
+
+class Stance(Action):
+    def __init__(self) -> None:
+        super().__init__('B')
+    
+    def reset_states(self) -> None:
+        pass
+    
+    def check(self, action: Action, distance: int) -> None:
+        self.reset_states()
+        pass
+
+    def resolve(self, action: Action, distance: int) -> None:
+        pass
+
+class Blank(Action):
+    def __init__(self) -> None:
+        super().__init__('_')
+    
+    def reset_states(self) -> None:
+        pass
+    
+    def check(self, action: Action, distance: int) -> None:
+        self.reset_states()
+        pass
+
+    def resolve(self, action: Action, distance: int) -> None:
+        pass
+
+class Charge(Action):
+    def __init__(self) -> None:
+        super().__init__('-')
+    
+    def reset_states(self) -> None:
+        pass
+    
+    def check(self, action: Action, distance: int) -> None:
+        self.reset_states()
+        pass
+
+    def resolve(self, action: Action, distance: int) -> None:
+        pass
+
+class Push(Action):
+    def __init__(self) -> None:
+        super().__init__('=')
+        self.state['move'] = True
+        self.state['push'] = False
+    
+    def reset_states(self) -> None:
+        self.state['move'] = True
+        self.state['push'] = False
+    
+    def check(self, action: Action, distance: int) -> None:
+        self.reset_states()
+        if distance == 0:
+            self.state['push'] = True
+        match action:
+            case Smash() | Push():
+                self.state['move'] = False if distance <= 1 else True
+                self.state['push'] = False
+            case Stance():
+                self.state['move'] = False if distance == 0 else True
+                self.state['push'] = False
+
+    def resolve(self, action: Action, distance: int) -> None:
+        pass
+
+class Forwards(Action):
+    def __init__(self) -> None:
+        super().__init__('>')
+        self.state['move'] = True
+    
+    def reset_states(self) -> None:
+        self.state['move'] = True
+    
+    def check(self, action: Action, distance: int) -> None:
+        self.reset_states()
+        if distance == 0:
+            self.state['move'] = False
+        elif distance <= 1:
+            match action:
+                case Smash() | Push():
+                    self.state['move'] = False
+                case Forwards():
+                    self.state['move'] = False
+
+    def resolve(self, action: Action, distance: int) -> None:
+        pass
+
+class Backwards(Action):
+    def __init__(self) -> None:
+        super().__init__('<')
+        self.state['move'] = True
+    
+    def reset_states(self) -> None:
+        self.state['move'] = True
+    
+    def check(self, action: Action, distance: int) -> None:
+        self.reset_states()
+        pass
+
+    def resolve(self, action: Action, distance: int) -> None:
         pass
 
 class Move():
-    def __init__(self, name: str, move_str: str) -> None:
+    def __init__(self, name: str) -> None:
         self.name = None
         try:
             if name in ALL_MOVES:
@@ -93,32 +268,16 @@ class Move():
         except ValueError as exp:
             print("The move: {} does not have a valid name\n{}".format(name, exp))
             exit(1)
-        # self.slots = 0
-        # try:
-        #     if slots == len(ALL_MOVES.get(self.name)):
-        #         self.slots = slots
-        #     else:
-        #         raise ValueError('Moves must take up the correct number of slots')
-        # except ValueError as exp:
-        #     print("The move: {} should not take up {} slots\n{}".format(name, slots, exp))
-        #     exit(1)
-        self.actions = None
-        # try:
-        #     if len(move_str) == slots:
-        try:
-            if move_str == ALL_MOVES.get(self.name):
-                self.actions = [Action(move_str[i]) for i in range(len(move_str))]
-            else:
-                raise ValueError('Moves must have valid actions')
-        except ValueError as exp:
-            print("The move: {} have invalid actions \n{}".format(name, exp))
-            exit(1)
-        #     else:
-        #         raise ValueError('Moves must have same number of actions as the slots it takes up')
-        # except ValueError as exp:
-        #     print("The move: {} has a length of {} but must take up {} slots\n{}".format(name, len(move_str), slots, exp))
-        #     exit(1)
+
+        self.actions = ALL_MOVES.get(self.name)
+
         self.slots = len(self.actions)
+    
+    def split(self, value: int) -> None:
+        if value > 0:
+            return [self.actions[0:value], self.actions[value:]]           # split on value, [first half, second half]
+        else:
+            return [self.actions, []]
 
 # card engine class
 
@@ -155,8 +314,8 @@ class Card_Engine():
 
         # example moves
         moves = []
-        for (name, actions) in ALL_MOVES.items():
-            moves.append(Move(name, actions))
+        for name in ALL_MOVES:
+            moves.append(Move(name))
         self.deck_add_moves(moves)
         
         self.deck_shuffle()
@@ -253,7 +412,7 @@ class AI_Engine():
         pass
 
     def decision(self) -> list[Action]:
-        return [Action('_'), Action('_'), Action('>'), Action('_'), Action('_'), Action('_')]
+        return [Blank(), Blank(), Blank(), Block(), Block(), Blank()]
 
 # game engine class
 
@@ -287,7 +446,6 @@ class Game_Engine():
 
         # states variables
         self.distance = self.player[1].mat_pos - self.player[0].mat_pos - 1
-        self.resolve = [False, False]           # for checking if an action is allowed to be resolved or not
     
     def update(self) -> None:
         self.display_score()
@@ -313,11 +471,10 @@ class Game_Engine():
                     self.run_turn(move)
 
     def append_actions(self, move: Move) -> None:
-        for j in range(len(move.actions)):
-            if len(self.curr_actions) < ACTIONS_MAX:
-                self.curr_actions.append(move.actions[j])
-            else:
-                self.futr_actions.append(move.actions[j])
+        value = ACTIONS_MAX - len(self.curr_actions)
+        split = move.split(value)
+        self.curr_actions.extend(split[0])
+        self.futr_actions.extend(split[1])
 
     def run_turn(self, move: Move) -> None:
         if move.slots >= self.available_slots:
@@ -391,15 +548,11 @@ class Game_Engine():
 
     def next_action(self) -> None:
         print(f"Turn: {self.turn} | Action: {self.action}")
-        self.reset_resolve()
         if self.action < ACTIONS_MAX:
             self.action += 1
         else:
             self.action = 1
             self.next_turn()
-    
-    def reset_resolve(self) -> None:
-        self.resolve = [False, False]
     
     def next_turn(self) -> None:
         self.turn += 1
@@ -414,146 +567,84 @@ class Game_Engine():
         self.opp_actions = []
     
     def check_action(self) -> None:
-        user_symbol = self.curr_actions[self.action - 1].symbol
-        opp_symbol = self.opp_actions[self.action - 1].symbol
-        self.check_symbol(user_symbol, 0)
-        self.check_symbol(opp_symbol, 1)
+        user_action = self.curr_actions[self.action - 1]
+        opp_action = self.opp_actions[self.action - 1]
+        user_action.check(opp_action, self.distance)
+        opp_action.check(user_action, self.distance)
+        print(f"User: {type(user_action)} ; {user_action.state} ; {self.player[0].mat_pos} | Opp: {type(opp_action)} ; {opp_action.state} ; {self.player[1].mat_pos} | Distance: {self.distance}")
 
     def resolve_action(self) -> None:
         # STILL NEED TO FIT OPPONENT'S MOVE IN HERE!
-        user_symbol = self.curr_actions[self.action - 1].symbol
-        opp_symbol = self.opp_actions[self.action - 1].symbol
-        self.resolve_symbol(user_symbol, 0)
-        self.resolve_symbol(opp_symbol, 1)
-    
-    def check_symbol(self, symbol: str, pid: int) -> None:
+        user_action = self.curr_actions[self.action - 1]
+        opp_action = self.opp_actions[self.action - 1]
+        self.resolve_match(user_action, 0)
+        self.resolve_match(opp_action, 1)
+
+    def resolve_match(self, action: Action, pid: int) -> None:
         # ACTION_SYMBOLS = ['x', 'X', 'b', 'B', '_', '-', '=', '>', '<']
         # priority is < then B then b then X then x then = then > then - then _
         # still need to figure out whats the best way to code this :(
-        match symbol:
-            case 'x':
-                self.check_hit(pid)
-            case 'X':
-                self.check_smash(pid)
-            case 'b':
-                self.check_block(pid)
-            case 'B':
-                self.check_stance(pid)
-            case '_':
-                self.check_blank(pid)
-            case '-':
-                self.check_charge(pid)
-            case '=':
-                self.check_push(pid)
-            case '>':
-                self.check_forwards(pid)
-            case '<':
-                self.check_backwards(pid)
-
-    def resolve_symbol(self, symbol: str, pid: int) -> None:
-        # ACTION_SYMBOLS = ['x', 'X', 'b', 'B', '_', '-', '=', '>', '<']
-        # priority is < then B then b then X then x then = then > then - then _
-        # still need to figure out whats the best way to code this :(
-        if self.resolve[pid]:
-            match symbol:
-                case 'x':
-                    self.resolve_hit(pid)
-                case 'X':
-                    self.resolve_smash(pid)
-                case 'b':
-                    self.resolve_block(pid)
-                case 'B':
-                    self.resolve_stance(pid)
-                case '_':
-                    self.resolve_blank(pid)
-                case '-':
-                    self.resolve_charge(pid)
-                case '=':
-                    self.resolve_push(pid)
-                case '>':
-                    self.resolve_forwards(pid)
-                case '<':
-                    self.resolve_backwards(pid)
-
-    def check_hit(self, pid: int) -> None:
-        self.resolve[pid] = True
+        match action:
+            case Hit():
+                self.resolve_hit(action, pid)
+            case Smash():
+                self.resolve_smash(action, pid)
+            case Block():
+                self.resolve_block(action, pid)
+            case Stance():
+                self.resolve_stance(action, pid)
+            case Blank():
+                self.resolve_blank(action, pid)
+            case Charge():
+                self.resolve_charge(action, pid)
+            case Push():
+                self.resolve_push(action, pid)
+            case Forwards():
+                self.resolve_forwards(action, pid)
+            case Backwards():
+                self.resolve_backwards(action, pid)
     
-    def resolve_hit(self, pid: int) -> None:
+    def resolve_hit(self, action: Action, pid: int) -> None:
         self.reset_charge(pid)
-        if self.distance == 0 and self.frames == 20:
-            self.scored(pid)
+        if self.frames == 20:
+            if action.state['score']:
+                self.scored(pid)
 
-    def check_smash(self, pid: int) -> None:
-        self.resolve[pid] = True
+    def resolve_smash(self, action: Action, pid: int) -> None:
+        if action.state['move']:
+            self.player[pid].pos_update(1, self.frames, ANIMATION_FRAMES)
+        if action.state['push']:
+            self.player[pid * -1 + 1].pos_update(-1, self.frames, ANIMATION_FRAMES)
+        if self.frames == 20:
+            self.reset_charge(pid)
+            if action.state['score']:
+                self.scored(pid)
 
-    def resolve_smash(self, pid: int) -> None:
-        self.player[pid].pos_update(1, self.frames, ANIMATION_FRAMES)
-        self.reset_charge(pid)
-        if self.distance == 0 and self.frames == 20:
-            self.scored(pid)
-
-    def check_block(self, pid: int) -> None:
-        self.resolve[pid] = True
-
-    def resolve_block(self, pid: int) -> None:
+    def resolve_block(self, action: Action, pid: int) -> None:
         pass
 
-    def check_stance(self, pid: int) -> None:
-        self.resolve[pid] = True
-
-    def resolve_stance(self, pid: int) -> None:
+    def resolve_stance(self, action: Action, pid: int) -> None:
         pass
 
-    def check_blank(self, pid: int) -> None:
-        self.resolve[pid] = True
-
-    def resolve_blank(self, pid: int) -> None:
+    def resolve_blank(self, action: Action, pid: int) -> None:
         pass
 
-    def check_charge(self, pid: int) -> None:
-        self.resolve[pid] = True
-        self.player[pid].charge += 1
-
-    def resolve_charge(self, pid: int) -> None:
+    def resolve_charge(self, action: Action, pid: int) -> None:
         pass
 
-    def check_push(self, pid: int) -> None:
-        if self.distance > 1:
-            self.resolve[pid] = True
-        else:
-            if pid == 0:
-                self.resolve[pid] = True
-            if pid == 1:
-                if self.curr_actions[self.action - 1].symbol == '=':
-                    self.resolve[0] = False
-                else:
-                    self.resolve[pid] = True
-
-    def resolve_push(self, pid: int) -> None:
-        self.player[pid].pos_update(1, self.frames, ANIMATION_FRAMES)
-        if self.distance == 0:
+    def resolve_push(self, action: Action, pid: int) -> None:
+        if action.state['move']:
+            self.player[pid].pos_update(1, self.frames, ANIMATION_FRAMES)
+        if action.state['push']:
             self.player[pid * -1 + 1].pos_update(-1, self.frames, ANIMATION_FRAMES)
 
-    def check_forwards(self, pid: int) -> None:
-        if self.distance > 1:
-            self.resolve[pid] = True
-        elif self.distance == 1:
-            if pid == 0:
-                self.resolve[pid] = True
-            if pid == 1:
-                if self.curr_actions[self.action - 1].symbol == '>':
-                    self.resolve[0] = False
-                elif not self.curr_actions[self.action - 1].symbol == '=':
-                    self.resolve[pid] = True
+    def resolve_forwards(self, action: Action, pid: int) -> None:
+        if action.state['move']:
+            self.player[pid].pos_update(1, self.frames, ANIMATION_FRAMES)
 
-    def resolve_forwards(self, pid: int) -> None:
-        self.player[pid].pos_update(1, self.frames, ANIMATION_FRAMES)
-
-    def check_backwards(self, pid: int) -> None:
-        self.resolve[pid] = True
-
-    def resolve_backwards(self, pid: int) -> None:
-        self.player[pid].pos_update(-1, self.frames, ANIMATION_FRAMES)
+    def resolve_backwards(self, action: Action, pid: int) -> None:
+        if action.state['move']:
+            self.player[pid].pos_update(-1, self.frames, ANIMATION_FRAMES)
     
     def scored(self, pid: int) -> None:
         self.score[pid] += 1
@@ -579,6 +670,35 @@ class Game_Engine():
         self.player[0].reset_states()
         self.player[1].reset_states()
 
+# load ALL_MOVES function
+
+def load_ALL_MOVES() -> None:
+    global ALL_MOVES_STR, ALL_MOVES
+    for (name, move_str) in ALL_MOVES_STR.items():
+        actions = []
+        for action in move_str:
+            match action:
+                case 'x':
+                    actions.append(Hit())
+                case 'X':
+                    actions.append(Smash())
+                case 'b':
+                    actions.append(Block())
+                case 'B':
+                    actions.append(Stance())
+                case '_':
+                    actions.append(Blank())
+                case '-':
+                    actions.append(Charge())
+                case '=':
+                    actions.append(Push())
+                case '>':
+                    actions.append(Forwards())
+                case '<':
+                    actions.append(Backwards())
+        ALL_MOVES[name] = tuple(actions)
+    print(ALL_MOVES)
+
 # connection function
 
 def conn() -> None:
@@ -591,6 +711,8 @@ def conn() -> None:
 # main function
 
 def main():
+
+    load_ALL_MOVES()
 
     game_engine = Game_Engine(True)
     card_engine = Card_Engine()
