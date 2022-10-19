@@ -518,7 +518,7 @@ class Game_Engine():
             if self.frames == ANIMATION_FRAMES:
                 for i in range(2):
                     if self.is_player_out(i):
-                        self.scored(i)
+                        self.scored(i * -1 + 1)
                 self.frames = -1
                 self.next_action()
             elif self.frames == -1:
