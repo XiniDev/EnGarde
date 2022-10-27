@@ -1,6 +1,6 @@
 import pygame
 
-import constants as C
+import utils as U
 
 # mat class (piste is made out of multiple mats)
 
@@ -17,12 +17,12 @@ class Stage():
 
     def update(self, win: pygame.Surface) -> None:
         self.render_mats(win)
-        pygame.draw.rect(win, (255, 0, 0), (C.X_CENTER - 2, C.Y_CENTER - 2, 4, 4))        # true center
+        pygame.draw.rect(win, (255, 0, 0), (U.X_CENTER - 2, U.Y_CENTER - 2, 4, 4))        # true center
     
     def render_mats(self, win: pygame.Surface) -> None:
-        LENGTH = 10 * C.SCALE            # temp length until i make mat sprite :)
-        SPACING = 5 * C.SCALE
+        LENGTH = 10 * U.SCALE            # temp length until i make mat sprite :)
+        SPACING = 5 * U.SCALE
         for i in range(self.piste_length):
             # win.blit(img, (), ())     # sprite holder
             pygame.draw.rect(
-                win, (255, 255, 255), (C.X_CENTER - LENGTH / 2 + ((LENGTH + SPACING) * (-1 if i % 2 == 1 else 1) * ((i + 1) // 2)), C.Y_CENTER, LENGTH, 5))
+                win, (255, 255, 255), (U.X_CENTER - LENGTH / 2 + ((LENGTH + SPACING) * (-1 if i % 2 == 1 else 1) * ((i + 1) // 2)), U.Y_CENTER, LENGTH, 5))

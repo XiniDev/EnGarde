@@ -1,7 +1,7 @@
 import pygame
 import random
 
-import constants as C
+import utils as U
 
 class Move():
     def __init__(self, name: str, ALL_MOVES: dict) -> None:
@@ -34,26 +34,6 @@ class Card_Engine():
         self.HAND_MAX = 4
         self.deck = []
         self.hand = []
-        self.cards = [None, None, None, None]
-    
-    def update(self, win: pygame.Surface) -> None:
-        self.draw(win)
-    
-    def draw(self, win: pygame.Surface) -> None:
-        size = (200, 100)
-        card_button = pygame.Surface(size)
-        card_button.fill((128, 128, 128))
-
-        x_value = [0] * self.HAND_MAX
-        for i in range(self.HAND_MAX):
-            x_value[i] = C.X_CENTER - size[0] - 50 - (((i + 1) // 2) * 300 * (-1 if i % 2 == 1 else 1))
-        x_value = sorted(x_value)
-        
-        for i in range(self.HAND_MAX):
-            self.cards[i] = win.blit(card_button, (x_value[i], 500))
-
-        for i in range(self.HAND_MAX):
-            win.blit(pygame.font.SysFont('Comic Sans MS', 30).render("Move: " + str(self.hand[i].name), False, (255, 255, 255)), (x_value[i], 500))
 
     def reset(self) -> None:
         self.deck = []
@@ -107,7 +87,32 @@ class Card_Engine():
             self.hand.extend(moves)
 
     def play_move(self, move_id: int) -> Move:       # three moves to choose from, after select one with mouse, it should give the number of the item in the hand
+        print(move_id, self.hand)
         move = self.hand[move_id]
         self.hand[move_id] = self.deck.pop(0)
         self.deck.append(move)
         return move
+
+class Card_Engine_Player(Card_Engine):
+    def __init__(self) -> None:
+        super().__init__()
+        self.cards = [None, None, None, None]
+    
+    def update(self, win: pygame.Surface) -> None:
+        self.draw(win)
+    
+    def draw(self, win: pygame.Surface) -> None:
+        size = (200, 100)
+        card_button = pygame.Surface(size)
+        card_button.fill((128, 128, 128))
+
+        x_value = [0] * self.HAND_MAX
+        for i in range(self.HAND_MAX):
+            x_value[i] = U.X_CENTER - size[0] - 50 - (((i + 1) // 2) * 300 * (-1 if i % 2 == 1 else 1))
+        x_value = sorted(x_value)
+        
+        for i in range(self.HAND_MAX):
+            self.cards[i] = win.blit(card_button, (x_value[i], 500))
+
+        for i in range(self.HAND_MAX):
+            win.blit(pygame.font.SysFont('Comic Sans MS', 30).render("Move: " + str(self.hand[i].name), False, (255, 255, 255)), (x_value[i], 500))

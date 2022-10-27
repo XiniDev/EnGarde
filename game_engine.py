@@ -2,7 +2,7 @@ import pygame
 
 from action import *
 from card_engine import *
-from constants import X_CENTER, Y_CENTER
+from utils import U
 from player import *
 from ai_engine import *
 
@@ -19,7 +19,7 @@ class Game_Engine():
 
         self.ai = AI_Engine() if self.is_sp else None
 
-        self.score = [14, 0]
+        self.score = [0, 0]
 
         self.turn = 1                           # turn variable (indicates which turn the game is on right now)
         self.action = 1                         # action variable (indicates which action slot the game is on right now)
@@ -46,6 +46,60 @@ class Game_Engine():
         self.resolve_turn()
         self.player[0].update(win)
         self.player[1].update(win)
+    
+    def start(self) -> None:
+        if self.is_sp:
+            self.ai.start()
+    
+    def display_score(self, win: pygame.Surface) -> None:
+        score = pygame.font.SysFont('Comic Sans MS', 30).render(str(self.score[0]) + " : " + str(self.score[1]), False, (255, 255, 255))
+        win.blit(score, score.get_rect(center = (U.X_CENTER, 30)))
+
+    def display_turn(self, win: pygame.Surface) -> None:
+        win.blit(pygame.font.SysFont('Comic Sans MS', 30).render("Turn " + str(self.turn), False, (255, 255, 255)), (0, 0))
+
+    def display_actions(self, win: pygame.Surface) -> None:
+        # actions holder
+        pygame.draw.rect(win, (128, 128, 128), (U.X_CENTER - 600, 50, 300, 50))
+        pygame.draw.rect(win, (128, 128, 128), (U.X_CENTER + 300, 50, 300, 50))
+
+        # action holder
+        pygame.draw.rect(win, (200, 0, 0), (U.X_CENTER - 600 + 50 * (self.action - 1), 50, 50, 50))
+        pygame.draw.rect(win, (200, 0, 0), (U.X_CENTER + 300 + 50 * (self.action - 1), 50, 50, 50))
+
+        # action symbols
+        for index, action in enumerate(self.curr_actions):
+            win.blit(pygame.font.SysFont('Comic Sans MS', 30).render(action.symbol, False, (255, 255, 255)), (U.X_CENTER - 600 + 50 * index + 15, 50))
+        
+        # opponent action symbols
+        for index, action in enumerate(self.opp_actions):
+            win.blit(pygame.font.SysFont('Comic Sans MS', 30).render(action.symbol, False, (255, 255, 255)), (U.X_CENTER + 300 + 50 * index + 15, 50))
+        for index, action in enumerate(self.opp_actions_past):
+            win.blit(pygame.font.SysFont('Comic Sans MS', 30).render(action.symbol, False, (255, 255, 255)), (U.X_CENTER + 300 + 50 * index + 15, 100))
+    
+    def resolve_turn(self) -> None:
+        self.update_distance()
+        if self.running_turn:
+            if self.frames == ANIMATION_FRAMES:
+                for i in range(2):
+                    if self.is_player_out(i):
+                        self.scored(i * -1 + 1)
+                self.frames = -1
+                self.next_action()
+            elif self.frames == -1:
+                self.frames += 1
+                self.check_action()
+            else:
+                self.frames += 1
+                self.resolve_action()
+        elif self.is_user_done:
+            if self.is_sp:
+                # run AI
+                self.opp_actions = self.ai.decision()
+                self.running_turn = True
+            else:
+                # recieve connection signal (if recieve signal -> self.running_turn = True)
+                pass
     
     def is_turn_running(self) -> bool:
         return self.running_turn
@@ -77,56 +131,6 @@ class Game_Engine():
 
     def user_done(self) -> None:
         self.is_user_done = True
-    
-    def display_score(self, win: pygame.Surface) -> None:
-        score = pygame.font.SysFont('Comic Sans MS', 30).render(str(self.score[0]) + " : " + str(self.score[1]), False, (255, 255, 255))
-        win.blit(score, score.get_rect(center = (C.X_CENTER, 30)))
-
-    def display_turn(self, win: pygame.Surface) -> None:
-        win.blit(pygame.font.SysFont('Comic Sans MS', 30).render("Turn " + str(self.turn), False, (255, 255, 255)), (0, 0))
-
-    def display_actions(self, win: pygame.Surface) -> None:
-        # actions holder
-        pygame.draw.rect(win, (128, 128, 128), (C.X_CENTER - 600, 50, 300, 50))
-        pygame.draw.rect(win, (128, 128, 128), (C.X_CENTER + 300, 50, 300, 50))
-
-        # action holder
-        pygame.draw.rect(win, (200, 0, 0), (C.X_CENTER - 600 + 50 * (self.action - 1), 50, 50, 50))
-        pygame.draw.rect(win, (200, 0, 0), (C.X_CENTER + 300 + 50 * (self.action - 1), 50, 50, 50))
-
-        # action symbols
-        for index, action in enumerate(self.curr_actions):
-            win.blit(pygame.font.SysFont('Comic Sans MS', 30).render(action.symbol, False, (255, 255, 255)), (C.X_CENTER - 600 + 50 * index + 15, 50))
-        
-        # opponent action symbols
-        for index, action in enumerate(self.opp_actions):
-            win.blit(pygame.font.SysFont('Comic Sans MS', 30).render(action.symbol, False, (255, 255, 255)), (C.X_CENTER + 300 + 50 * index + 15, 50))
-        for index, action in enumerate(self.opp_actions_past):
-            win.blit(pygame.font.SysFont('Comic Sans MS', 30).render(action.symbol, False, (255, 255, 255)), (C.X_CENTER + 300 + 50 * index + 15, 100))
-
-    def resolve_turn(self) -> None:
-        self.update_distance()
-        if self.running_turn:
-            if self.frames == ANIMATION_FRAMES:
-                for i in range(2):
-                    if self.is_player_out(i):
-                        self.scored(i * -1 + 1)
-                self.frames = -1
-                self.next_action()
-            elif self.frames == -1:
-                self.frames += 1
-                self.check_action()
-            else:
-                self.frames += 1
-                self.resolve_action()
-        elif self.is_user_done:
-            if self.is_sp:
-                # run AI
-                self.opp_actions = self.ai.decision()
-                self.running_turn = True
-            else:
-                # recieve connection signal (if recieve signal -> self.running_turn = True)
-                pass
 
     def update_distance(self) -> None:
         self.distance = self.player[1].mat_pos - self.player[0].mat_pos - 1
@@ -254,6 +258,7 @@ class Game_Engine():
         self.player[1].reset_pos()
         self.futr_actions = []
         self.opp_actions = []
+        self.ai.reset_turn()
         self.reset_states()
         self.reset_actions()
 
@@ -265,6 +270,6 @@ class Game_Engine():
     def check_victory(self, win: pygame.Surface) -> int:
         for i in range(2):
             if self.score[i] >= 15:
-                win.blit(pygame.font.SysFont('Comic Sans MS', 60).render("Player " + str(i + 1) + " wins!", False, (255, 255, 255)), (X_CENTER, Y_CENTER))
+                win.blit(pygame.font.SysFont('Comic Sans MS', 60).render("Player " + str(i + 1) + " wins!", False, (255, 255, 255)), (U.X_CENTER, U.Y_CENTER))
                 return (i + 1)
         return 0

@@ -1,4 +1,4 @@
-import constants as A
+import utils as U
 
 # action class
 
@@ -6,7 +6,7 @@ class Action():
     def __init__(self, symbol: str) -> None:
         self.symbol = None
         try:
-            if symbol in A.ACTION_SYMBOLS:
+            if symbol in U.ACTION_SYMBOLS:
                 self.symbol = symbol
             else:
                 raise ValueError('Actions must have a valid symbol')
