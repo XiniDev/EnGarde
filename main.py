@@ -34,8 +34,6 @@ pygame.mixer.music.load('assets/music/background_track.wav')
 pygame.mixer.music.set_volume(0.3)
 pygame.mixer.music.play(loops = -1)
 
-#actiion ;p
-
 # connection function
 
 def conn() -> None:

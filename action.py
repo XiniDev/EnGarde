@@ -189,3 +189,19 @@ class Backwards(Action):
 
     def resolve(self, action: Action, distance: int) -> None:
         pass
+
+# action logic
+
+# class Action_Logic():
+#     def __init__(self) -> None:
+#         pass
+
+#     def score_function() -> list[int]:
+#         winner = (c1 + a1) * x1 - (c2 + a2) * x2
+#         reach = m - d + 1
+#         res = winner * reach
+#         false_zero = (x1 + x2) * reach
+#         if res == 0:
+#             return [1, 1] if false_zero > 0 else [0, 0]
+#         else:
+#             return [1, 0] if res > 0 else [0, 1]
