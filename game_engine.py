@@ -81,9 +81,10 @@ class Game_Engine():
         self.update_distance()
         if self.running_turn:
             if self.frames == ANIMATION_FRAMES:
-                for i in range(2):
-                    if self.is_player_out(i):
-                        self.scored(i * -1 + 1)
+                if self.is_player_out(0):
+                    self.scored(0, 1)
+                if self.is_player_out(1):
+                    self.scored(1, 0)
                 self.frames = -1
                 self.next_action()
             elif self.frames == -1:
@@ -95,7 +96,8 @@ class Game_Engine():
         elif self.is_user_done:
             if self.is_sp:
                 # run AI
-                self.opp_actions = self.ai.decision()
+                # self.opp_actions = self.ai.decision()
+                self.opp_actions = self.ai.debug_decision()
                 self.running_turn = True
             else:
                 # recieve connection signal (if recieve signal -> self.running_turn = True)
@@ -165,89 +167,114 @@ class Game_Engine():
     def check_action(self) -> None:
         user_action = self.curr_actions[self.action - 1]
         opp_action = self.opp_actions[self.action - 1]
-        user_action.check(opp_action, self.distance)
-        opp_action.check(user_action, self.distance)
-        print(f"User: {type(user_action)} ; {user_action.state} ; {self.player[0].mat_pos} | Opp: {type(opp_action)} ; {opp_action.state} ; {self.player[1].mat_pos} | Distance: {self.distance}")
+        action_logic = Action_Logic()
+        # user_action.check(opp_action, self.distance)
+        # opp_action.check(user_action, self.distance)
+        charge = action_logic.compute(user_action, opp_action, self.distance, [self.player[0].charge, self.player[1].charge])
+        self.player[0].charge = charge[0]
+        self.player[1].charge = charge[1]
+        print(f"User: {type(user_action)} ; {user_action.states} ; {self.player[0].mat_pos} ; Charge: {charge[0]} | Opp: {type(opp_action)} ; {opp_action.states} ; {self.player[1].mat_pos} ; Charge: {charge[1]} | Distance: {self.distance}")
 
     def resolve_action(self) -> None:
         # STILL NEED TO FIT OPPONENT'S MOVE IN HERE!
         user_action = self.curr_actions[self.action - 1]
         opp_action = self.opp_actions[self.action - 1]
-        self.resolve_match(user_action, 0)
-        self.resolve_match(opp_action, 1)
+        # self.resolve_match(user_action, 0)
+        # self.resolve_match(opp_action, 1)
+        self.resolve_animation(user_action, 0)
+        self.resolve_animation(opp_action, 1)
+        self.resolve_score(user_action, opp_action)
 
-    def resolve_match(self, action: Action, pid: int) -> None:
-        # ACTION_SYMBOLS = ['x', 'X', 'b', 'B', '_', '-', '=', '>', '<']
-        # priority is < then B then b then X then x then = then > then - then _
-        # still need to figure out whats the best way to code this :(
-        match action:
-            case Hit():
-                self.resolve_hit(action, pid)
-            case Smash():
-                self.resolve_smash(action, pid)
-            case Block():
-                self.resolve_block(action, pid)
-            case Stance():
-                self.resolve_stance(action, pid)
-            case Blank():
-                self.resolve_blank(action, pid)
-            case Charge():
-                self.resolve_charge(action, pid)
-            case Push():
-                self.resolve_push(action, pid)
-            case Forwards():
-                self.resolve_forwards(action, pid)
-            case Backwards():
-                self.resolve_backwards(action, pid)
+    # def resolve_match(self, action: Action, pid: int) -> None:
+    #     # ACTION_SYMBOLS = ['x', 'X', 'b', 'B', '_', '-', '=', '>', '<']
+    #     # priority is < then B then b then X then x then = then > then - then _
+    #     # still need to figure out whats the best way to code this :(
+    #     match action:
+    #         case Hit():
+    #             self.resolve_hit(action, pid)
+    #         case Smash():
+    #             self.resolve_smash(action, pid)
+    #         case Block():
+    #             self.resolve_block(action, pid)
+    #         case Stance():
+    #             self.resolve_stance(action, pid)
+    #         case Blank():
+    #             self.resolve_blank(action, pid)
+    #         case Charge():
+    #             self.resolve_charge(action, pid)
+    #         case Push():
+    #             self.resolve_push(action, pid)
+    #         case Forwards():
+    #             self.resolve_forwards(action, pid)
+    #         case Backwards():
+    #             self.resolve_backwards(action, pid)
     
-    def resolve_hit(self, action: Action, pid: int) -> None:
-        self.reset_charge(pid)
+    def resolve_animation(self, action: Action, pid: int) -> None:
+        if action.states['move'] != 0:
+            self.player[pid].pos_update(action.states['move'], self.frames, ANIMATION_FRAMES)
+        if action.states['push'] == 1:
+            if self.distance == 0:
+                self.player[pid * -1 + 1].pos_update(-1, self.frames, ANIMATION_FRAMES)
+
+    def resolve_score(self, a_1: Action, a_2: Action) -> None:  # thnk of something better HERE
         if self.frames == 20:
-            if action.state['score']:
-                self.scored(pid)
-
-    def resolve_smash(self, action: Action, pid: int) -> None:
-        if action.state['move']:
-            self.player[pid].pos_update(1, self.frames, ANIMATION_FRAMES)
-        if action.state['push']:
-            self.player[pid * -1 + 1].pos_update(-1, self.frames, ANIMATION_FRAMES)
-        if self.frames == 20:
-            self.reset_charge(pid)
-            if action.state['score']:
-                self.scored(pid)
-
-    def resolve_block(self, action: Action, pid: int) -> None:
-        pass
-
-    def resolve_stance(self, action: Action, pid: int) -> None:
-        pass
-
-    def resolve_blank(self, action: Action, pid: int) -> None:
-        pass
-
-    def resolve_charge(self, action: Action, pid: int) -> None:
-        pass
-
-    def resolve_push(self, action: Action, pid: int) -> None:
-        if action.state['move']:
-            self.player[pid].pos_update(1, self.frames, ANIMATION_FRAMES)
-        if action.state['push']:
-            self.player[pid * -1 + 1].pos_update(-1, self.frames, ANIMATION_FRAMES)
-
-    def resolve_forwards(self, action: Action, pid: int) -> None:
-        if action.state['move']:
-            self.player[pid].pos_update(1, self.frames, ANIMATION_FRAMES)
-
-    def resolve_backwards(self, action: Action, pid: int) -> None:
-        if action.state['move']:
-            self.player[pid].pos_update(-1, self.frames, ANIMATION_FRAMES)
+            if a_1.states['score'] == 1 or a_2.states['score'] == 1:
+                self.scored(a_1.states['score'], a_2.states['score'])
     
-    def scored(self, pid: int) -> None:
-        self.score[pid] += 1
+    # def resolve_hit(self, action: Action, pid: int) -> None:
+    #     self.reset_charge(pid)
+    #     if self.frames == 20:
+    #         if action.state['score']:
+    #             self.scored(pid)
+
+    # def resolve_smash(self, action: Action, pid: int) -> None:
+    #     if action.state['move']:
+    #         self.player[pid].pos_update(1, self.frames, ANIMATION_FRAMES)
+    #     if action.state['push']:
+    #         self.player[pid * -1 + 1].pos_update(-1, self.frames, ANIMATION_FRAMES)
+    #     if self.frames == 20:
+    #         self.reset_charge(pid)
+    #         if action.state['score']:
+    #             self.scored(pid)
+
+    # def resolve_block(self, action: Action, pid: int) -> None:
+    #     pass
+
+    # def resolve_stance(self, action: Action, pid: int) -> None:
+    #     pass
+
+    # def resolve_blank(self, action: Action, pid: int) -> None:
+    #     pass
+
+    # def resolve_charge(self, action: Action, pid: int) -> None:
+    #     pass
+
+    # def resolve_push(self, action: Action, pid: int) -> None:
+    #     if action.state['move']:
+    #         self.player[pid].pos_update(1, self.frames, ANIMATION_FRAMES)
+    #     if action.state['push']:
+    #         self.player[pid * -1 + 1].pos_update(-1, self.frames, ANIMATION_FRAMES)
+
+    # def resolve_forwards(self, action: Action, pid: int) -> None:
+    #     if action.state['move']:
+    #         self.player[pid].pos_update(1, self.frames, ANIMATION_FRAMES)
+
+    # def resolve_backwards(self, action: Action, pid: int) -> None:
+    #     if action.state['move']:
+    #         self.player[pid].pos_update(-1, self.frames, ANIMATION_FRAMES)
+    
+    # def scored(self, pid: int) -> None:
+    #     self.score[pid] += 1
+    #     self.reset_turn()
+
+    def scored(self, p1: int, p2: int) -> None:
+        self.score[0] += p1
+        self.score[1] += p2
         self.reset_turn()
     
-    def reset_charge(self, pid: int) -> None:
-        self.player[pid].charge = 0
+    def reset_charge(self) -> None:
+        self.player[0].charge = 0
+        self.player[1].charge = 0
 
     def reset_turn(self) -> None:
         self.turn = 1
@@ -259,6 +286,7 @@ class Game_Engine():
         self.futr_actions = []
         self.opp_actions = []
         self.ai.reset_turn()
+        self.reset_charge()
         self.reset_states()
         self.reset_actions()
 

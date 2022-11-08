@@ -54,7 +54,6 @@ class AI_Engine():
             return result
         else:
             return self.decision()
-        # return [Blank(), Blank(), Blank(), Blank(), Blank(), Blank()]
     
     def ai_done(self) -> None:
         self.is_ai_done = True
@@ -67,3 +66,6 @@ class AI_Engine():
         self.is_ai_done = False
         self.curr_actions = self.futr_actions
         self.futr_actions = []
+
+    def debug_decision(self) -> list[Action]:
+        return [Charge(), Charge(), Push(), Push(), Push(), Blank()]
