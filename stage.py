@@ -18,6 +18,9 @@ class Stage():
     def update(self, win: pygame.Surface) -> None:
         self.render_mats(win)
         pygame.draw.rect(win, (255, 0, 0), (U.X_CENTER - 2, U.Y_CENTER - 2, 4, 4))        # true center
+
+    def reset(self) -> None:
+        pass
     
     def render_mats(self, win: pygame.Surface) -> None:
         LENGTH = 10 * U.SCALE            # temp length until i make mat sprite :)

@@ -8,6 +8,8 @@ HEIGHT = 90 * SCALE
 X_CENTER = WIDTH / 2
 Y_CENTER = HEIGHT / 2
 
+PISTE_LENGTH = 7
+
 # actions
 
 ACTION_SYMBOLS = ['x', 'X', 'b', 'B', '_', '-', '=', '>', '<']

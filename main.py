@@ -43,20 +43,79 @@ def conn() -> None:
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client.connect((IP, PORT))
 
+# end game stuff
+
+winner = 0
+end_message_timer = 0
+
+# gui functions
+
+def display_victory(winner: int):
+    win.blit(pygame.font.SysFont('Comic Sans MS', 60).render("Player " + str(winner) + " wins!", False, (255, 255, 255)), (U.X_CENTER, U.Y_CENTER))
+
+curr_gui = 'menu'
+
+def gui_menu(*args) -> str:
+    # temporary menu setup
+    keys = pygame.key.get_pressed()
+    if (keys[pygame.K_LSHIFT] and keys[pygame.K_c]):
+        if client == None:
+            conn()
+    if (keys[pygame.K_s]) or True:      # true = always single player right now :)
+        for arg in args:
+            if type(arg) == Game_Engine:
+                arg.set_sp(True)
+            arg.reset()
+        return 'game'
+    return 'menu'
+
+def gui_game(*args) -> str:
+    global curr_gui, winner
+    for arg in args:
+        arg.update(win)
+        if type(arg) == Game_Engine:
+            winner = arg.check_victory()
+    if winner != 0:
+        return 'victory'
+    return 'game'
+
+def gui_victory(*args) -> str:
+    global curr_gui, winner, end_message_timer
+    if end_message_timer == 300:
+        end_message_timer = 0
+        winner = 0
+        for arg in args:
+            arg.reset()
+        return 'game'
+    else:
+        end_message_timer += 1
+        display_victory(winner)
+    return 'victory'
+
+gui = {
+    'menu' : lambda args: gui_menu(*args),
+    'game' : lambda args: gui_game(*args),
+    'victory' : lambda args: gui_victory(*args),
+}
+
 # main function
 
 def main():
 
+    # load stuff and classes
     U.load_ALL_MOVES()
 
-    game_engine = Game_Engine(True)
+    game_engine = Game_Engine()
     card_engine_player = Card_Engine_Player()
-    stage = Stage(9)
+    stage = Stage(U.PISTE_LENGTH)
+
+    # gui stuff
+    curr_gui = 'menu'
+
+    # load moves in card
+    card_engine_player.start(U.ALL_MOVES)
 
     # game loop
-
-    game_engine.start()
-    card_engine_player.start(U.ALL_MOVES)
 
     while True:
         for event in pygame.event.get():
@@ -66,23 +125,13 @@ def main():
                 pygame.quit()
                 exit()
 
-            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and not game_engine.is_turn_running():
-                game_engine.move_selection(card_engine_player)
+            if curr_gui == 'game':
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and not game_engine.is_turn_running():
+                    game_engine.move_selection(card_engine_player)
 
         win.fill((0, 0, 0))
-
-        keys = pygame.key.get_pressed()
-        if (keys[pygame.K_LSHIFT] and keys[pygame.K_c]):
-            if client == None:
-                conn()
-
-        stage.update(win)
-        card_engine_player.update(win)
-        game_engine.update(win)
-
-        winner = game_engine.check_victory(win)
-        if winner != 0:
-            print("!")
+        
+        curr_gui = gui.get(curr_gui)([stage, card_engine_player, game_engine])
 
         clock.tick(FPS)
         pygame.display.update()

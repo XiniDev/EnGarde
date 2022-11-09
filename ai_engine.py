@@ -20,12 +20,16 @@ class AI_Engine():
         self.curr_actions = []
         self.futr_actions = []
 
+    def reset(self) -> None:
+        self.card_engine.reset()
+
     def start(self) -> None:
         self.card_engine.start(U.ALL_MOVES)
     
     def move_selection(self) -> None:
         if self.available_slots <= 0:
             self.available_slots = ACTIONS_MAX + self.available_slots
+            self.ai_done()
         else:
             move = self.card_engine.play_move(int(random.random() * 4))
             self.append_actions(move)
@@ -44,16 +48,18 @@ class AI_Engine():
         else:
             self.available_slots = self.available_slots - move.slots
 
-    def decision(self) -> list[Action]:
+    def decision(self, mat_pos_1: int, mat_pos_2: int, opp_past_actions: list[Action]) -> list[Action]:
+        # print(self.card_engine.deck)
+        print(f"p_pos: {mat_pos_1} | a_pos: {mat_pos_2} | p_past: {opp_past_actions}")
         self.move_selection()
-        print(self.is_ai_done)
+        print(f"AI Done: {self.is_ai_done}")
         if self.is_ai_done:
             result = self.curr_actions
             self.reset_actions()
-            print(result, self.curr_actions, self.futr_actions)
+            print(f"AI Curr: {result} | AI Fut: {self.curr_actions} | AI Fut2: {self.futr_actions}")
             return result
         else:
-            return self.decision()
+            return self.decision(mat_pos_1, mat_pos_2, opp_past_actions)
     
     def ai_done(self) -> None:
         self.is_ai_done = True
@@ -68,4 +74,4 @@ class AI_Engine():
         self.futr_actions = []
 
     def debug_decision(self) -> list[Action]:
-        return [Charge(), Charge(), Push(), Push(), Push(), Blank()]
+        return [Block(), Block(), Block(), Block(), Block(), Block()]

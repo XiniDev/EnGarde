@@ -13,10 +13,6 @@ class Player():
         self.pos_x = self.set_pos_x()
         self.pos_y = U.Y_CENTER - U.SCALE - self.height
 
-        # player states variables
-        self.charge = 0
-        self.stance = False
-
     def update(self, win: pygame.Surface) -> None:
         self.render_player(win)
     
@@ -38,7 +34,3 @@ class Player():
     def reset_pos(self) -> None:
         self.mat_pos = -1 if self.is_user else 1
         self.pos_x = self.set_pos_x()
-    
-    def reset_states(self) -> None:
-        self.charge = 0
-        self.stance = False

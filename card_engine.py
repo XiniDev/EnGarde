@@ -18,6 +18,9 @@ class Move():
         self.actions = ALL_MOVES.get(self.name)
 
         self.slots = len(self.actions)
+
+    def __repr__(self) -> str:
+        return (f"Move: {self.name} | Actions: {self.actions}")
     
     def split(self, value: int) -> None:
         if value > 0:
@@ -34,13 +37,19 @@ class Card_Engine():
         self.HAND_MAX = 4
         self.deck = []
         self.hand = []
-
+    
     def reset(self) -> None:
+        self.deck_add_moves(self.hand)
+        self.hand = []
+        self.deck_shuffle()
+        self.draw_moves()
+
+    def reset_cards(self) -> None:
         self.deck = []
         self.hand = []
     
     def start(self, ALL_MOVES: dict) -> None:
-        self.reset()
+        self.reset_cards()
 
         # example moves
         moves = []
@@ -52,10 +61,7 @@ class Card_Engine():
         self.draw_moves()
 
     def deck_size_check(self, addition: int) -> bool:
-        if len(self.deck) + addition <= self.DECK_MAX:
-            return True
-        else:
-            return False
+        return (len(self.deck) + addition <= self.DECK_MAX)
 
     def deck_add_move(self, move: Move) -> bool:
         if self.deck_size_check(1):
@@ -80,14 +86,11 @@ class Card_Engine():
             self.hand.append(move)
 
     def draw_moves(self) -> None:
-        moves = []
         if len(self.hand) == self.HAND_MAX - self.HAND_MAX:
-            for i in range(self.HAND_MAX):
-                moves.append(self.deck.pop(0))
-            self.hand.extend(moves)
+            self.hand.extend([self.deck.pop(0) for i in range(self.HAND_MAX)])
 
     def play_move(self, move_id: int) -> Move:       # three moves to choose from, after select one with mouse, it should give the number of the item in the hand
-        print(move_id, self.hand)
+        # print(move_id, self.hand)
         move = self.hand[move_id]
         self.hand[move_id] = self.deck.pop(0)
         self.deck.append(move)
@@ -106,10 +109,8 @@ class Card_Engine_Player(Card_Engine):
         card_button = pygame.Surface(size)
         card_button.fill((128, 128, 128))
 
-        x_value = [0] * self.HAND_MAX
-        for i in range(self.HAND_MAX):
-            x_value[i] = U.X_CENTER - size[0] - 50 - (((i + 1) // 2) * 300 * (-1 if i % 2 == 1 else 1))
-        x_value = sorted(x_value)
+        # setting x values for drawing the cards in this order : 3, 1, 2, 4, then sorting it        
+        x_value = sorted([U.X_CENTER - size[0] - 50 - (((i + 1) // 2) * 300 * (-1 if i % 2 == 1 else 1)) for i in range(self.HAND_MAX)])
         
         for i in range(self.HAND_MAX):
             self.cards[i] = win.blit(card_button, (x_value[i], 500))
