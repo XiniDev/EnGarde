@@ -1,7 +1,8 @@
 from sys import exit
-import socket
 
 import utils as U
+
+import network as network
 
 from action import *
 from stage import *
@@ -9,11 +10,6 @@ from card_engine import *
 from game_engine import *
 
 import pygame
-
-IP = 'localhost'
-PORT = 5555
-
-client = None
 
 pygame.init()
 
@@ -34,15 +30,6 @@ pygame.mixer.music.load('assets/music/background_track.wav')
 pygame.mixer.music.set_volume(0.3)
 pygame.mixer.music.play(loops = -1)
 
-# connection function
-
-def conn() -> None:
-
-    # connect to server
-    global client
-    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client.connect((IP, PORT))
-
 # end game stuff
 
 winner = 0
@@ -54,17 +41,22 @@ def display_victory(winner: int):
     win.blit(pygame.font.SysFont('Comic Sans MS', 60).render("Player " + str(winner) + " wins!", False, (255, 255, 255)), (U.X_CENTER, U.Y_CENTER))
 
 curr_gui = 'menu'
+is_sp = None
 
-def gui_menu(*args) -> str:
-    # temporary menu setup
-    keys = pygame.key.get_pressed()
-    if (keys[pygame.K_LSHIFT] and keys[pygame.K_c]):
-        if client == None:
-            conn()
-    if (keys[pygame.K_s]) or True:      # true = always single player right now :)
+def gui_menu(*args) -> str:         # temporary menu setup
+    global is_sp
+    if is_sp == None:
+        keys = pygame.key.get_pressed()
+        if (keys[pygame.K_m]):
+            if network.client == None:
+                network.conn()
+            is_sp = False
+        if (keys[pygame.K_s]):      # or True = always single player right now :)
+            is_sp = True
+    else:
         for arg in args:
             if type(arg) == Game_Engine:
-                arg.set_sp(True)
+                arg.set_sp(is_sp)
             arg.reset()
         return 'game'
     return 'menu'
@@ -86,7 +78,7 @@ def gui_victory(*args) -> str:
         winner = 0
         for arg in args:
             arg.reset()
-        return 'game'
+        return 'menu'
     else:
         end_message_timer += 1
         display_victory(winner)

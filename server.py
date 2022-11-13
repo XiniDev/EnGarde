@@ -14,7 +14,7 @@ is_p1 = True
 player_1 = None
 player_2 = None
 
-def conn_handler(conn):
+def conn_handler(conn, addr):
     # globals
     global is_p1, player_1, player_2
 
@@ -36,13 +36,21 @@ def conn_handler(conn):
 
     # connection loop
     while True:
-        data = conn.recv(2048)
-
         try:
-            if is_p1:
-                player_1.send(bytes(data))
+            data = conn.recv(2048)
+            reply = data.decode('utf-8')
+            if not data:
+                print(f"{addr} has disconnected")
+                conn.send(str.encode("You have disconnected"))
+                break
             else:
-                player_2.send(bytes(data))
+                print("Recieved: " + reply)
+                print("Sending: " + reply)
+            conn.sendall(str.encode(reply))
+            # if is_p1:
+            #     player_1.send(bytes(data))
+            # else:
+            #     player_2.send(bytes(data))
         except:
             break
     
@@ -62,7 +70,7 @@ def run():
         conn, addr = server.accept()
         print("Connected to: ", addr)
 
-        thread = threading.Thread(target = conn_handler, args = (conn,))
+        thread = threading.Thread(target = conn_handler, args = (conn, addr))
         thread.start()
 
 # main function

@@ -1,6 +1,7 @@
 import pygame
 
 import utils as U
+import network as network
 import action_logic as al
 
 from action import *
@@ -64,6 +65,18 @@ class Game_Engine():
     def set_sp(self, is_sp: bool) -> None:
         self.is_sp = is_sp
         self.set_ai()
+
+    def send_data(self) -> str:
+        data = ','.join([i.symbol for i in self.curr_actions]) + ';' + ','.join([i.symbol for i in self.past_actions])
+        return network.send(data)
+
+    def parse_data(self, data: str) -> tuple[list[Action]]:
+        try:
+            parsed = data.split(';')
+            curr, past = parsed[0].split(','), parsed(';')[1].split(',')
+            return curr, past
+        except:
+            return [Blank()] * 6, [Blank()] * 6
     
     def display_score(self, win: pygame.Surface) -> None:
         score = pygame.font.SysFont('Comic Sans MS', 30).render(str(self.score[0]) + " : " + str(self.score[1]), False, (255, 255, 255))
@@ -95,6 +108,7 @@ class Game_Engine():
     
     def resolve_turn(self) -> None:
         self.update_distance()
+        print(network.client)
         if self.running_turn:
             if self.frames == ANIMATION_FRAMES:
                 self.out_detection()
@@ -114,7 +128,9 @@ class Game_Engine():
                 self.running_turn = True
             else:
                 # recieve connection signal (if recieve signal -> self.running_turn = True)
-                pass
+                # send curr actions to run on other screen, send past actions to display what they have done previously
+                self.opp_actions, self.opp_actions_past = self.parse_data(self.send_data())
+                self.running_turn = True
     
     def is_turn_running(self) -> bool:
         return self.running_turn
@@ -287,9 +303,10 @@ class Game_Engine():
         self.futr_actions = []
         self.curr_actions = []
         self.opp_actions = []
-        self.ai.reset_turn()
         self.reset_states()
         self.reset_actions()
+        if self.is_sp:
+            self.ai.reset_turn()
 
     def reset_states(self) -> None:
         self.update_distance()
