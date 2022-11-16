@@ -1,6 +1,8 @@
 import pygame
 import random
 
+from collections import deque
+
 import utils as U
 
 class Move():
@@ -35,7 +37,7 @@ class Card_Engine():
     def __init__(self) -> None:
         self.DECK_MAX = 8
         self.HAND_MAX = 4
-        self.deck = []
+        self.deck = deque()
         self.hand = []
     
     def reset(self) -> None:
@@ -45,7 +47,7 @@ class Card_Engine():
         self.draw_moves()
 
     def reset_cards(self) -> None:
-        self.deck = []
+        self.deck = deque()
         self.hand = []
     
     def start(self, ALL_MOVES: dict) -> None:
@@ -81,18 +83,18 @@ class Card_Engine():
         random.shuffle(self.deck)
 
     def draw_move(self) -> None:
-        move = self.deck.pop(0)
+        move = self.deck.popleft()
         if len(self.hand) == self.HAND_MAX - 1:
             self.hand.append(move)
 
     def draw_moves(self) -> None:
         if len(self.hand) == self.HAND_MAX - self.HAND_MAX:
-            self.hand.extend([self.deck.pop(0) for i in range(self.HAND_MAX)])
+            self.hand.extend([self.deck.popleft() for i in range(self.HAND_MAX)])
 
     def play_move(self, move_id: int) -> Move:       # three moves to choose from, after select one with mouse, it should give the number of the item in the hand
         # print(move_id, self.hand)
         move = self.hand[move_id]
-        self.hand[move_id] = self.deck.pop(0)
+        self.hand[move_id] = self.deck.popleft()
         self.deck.append(move)
         return move
 

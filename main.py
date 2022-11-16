@@ -41,23 +41,23 @@ def display_victory(winner: int):
     win.blit(pygame.font.SysFont('Comic Sans MS', 60).render("Player " + str(winner) + " wins!", False, (255, 255, 255)), (U.X_CENTER, U.Y_CENTER))
 
 curr_gui = 'menu'
-is_sp = None
+connection = None
 
 network = None
 
 def gui_menu(game_engine: Game_Engine, *args) -> str:         # temporary menu setup
-    global is_sp, network
-    if is_sp == None:
+    global connection, network
+    if connection == None:
         keys = pygame.key.get_pressed()
         if (keys[pygame.K_m]):
             network = Network()
             if network.client == None:
                 network.conn()
-            is_sp = False
+            connection = False
         if (keys[pygame.K_s]):      # or True = always single player right now :)
-            is_sp = True
+            connection = True
     else:
-        game_engine.set_sp(is_sp)
+        game_engine.set_sp(connection)
         for arg in args:
             arg.reset()
         game_engine.reset()

@@ -284,7 +284,7 @@ class Game_Engine():
         self.frames = -1
         self.available_slots = ACTIONS_MAX
         if self.is_sp:
-            self.ai.update_memory(self.curr_actions)
+            self.ai.append_opp_past_actions(self.curr_actions)
             self.ai.reset_turn()
             print(self.ai.opp_past_actions)
         self.player[0].reset_pos()
