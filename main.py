@@ -2,7 +2,7 @@ from sys import exit
 
 import utils as U
 
-import network as network
+from network import *
 
 from action import *
 from stage import *
@@ -43,41 +43,54 @@ def display_victory(winner: int):
 curr_gui = 'menu'
 is_sp = None
 
-def gui_menu(*args) -> str:         # temporary menu setup
-    global is_sp
+network = None
+
+def gui_menu(game_engine: Game_Engine, *args) -> str:         # temporary menu setup
+    global is_sp, network
     if is_sp == None:
         keys = pygame.key.get_pressed()
         if (keys[pygame.K_m]):
+            network = Network()
             if network.client == None:
                 network.conn()
             is_sp = False
         if (keys[pygame.K_s]):      # or True = always single player right now :)
             is_sp = True
     else:
+        game_engine.set_sp(is_sp)
         for arg in args:
-            if type(arg) == Game_Engine:
-                arg.set_sp(is_sp)
             arg.reset()
+        game_engine.reset()
         return 'game'
     return 'menu'
 
-def gui_game(*args) -> str:
+def gui_game(game_engine: Game_Engine, *args) -> str:
     global curr_gui, winner
+
+    # update all classes
     for arg in args:
         arg.update(win)
-        if type(arg) == Game_Engine:
-            winner = arg.check_victory()
+    game_engine.update(win)
+
+    # network stuff
+    if game_engine.is_sp == False and network != None and network.client != None:
+        data = game_engine.send_data(network)
+        game_engine.parse_data(data)
+    
+    # check victory
+    winner = game_engine.check_victory()
     if winner != 0:
         return 'victory'
     return 'game'
 
-def gui_victory(*args) -> str:
+def gui_victory(game_engine: Game_Engine, *args) -> str:
     global curr_gui, winner, end_message_timer
     if end_message_timer == 300:
         end_message_timer = 0
         winner = 0
         for arg in args:
             arg.reset()
+        game_engine.reset()
         return 'menu'
     else:
         end_message_timer += 1
@@ -85,9 +98,9 @@ def gui_victory(*args) -> str:
     return 'victory'
 
 gui = {
-    'menu' : lambda args: gui_menu(*args),
-    'game' : lambda args: gui_game(*args),
-    'victory' : lambda args: gui_victory(*args),
+    'menu' : lambda game_engine, args: gui_menu(game_engine, *args),
+    'game' : lambda game_engine, args: gui_game(game_engine, *args),
+    'victory' : lambda game_engine, args: gui_victory(game_engine, *args),
 }
 
 # main function
@@ -98,14 +111,14 @@ def main():
     U.load_ALL_MOVES()
 
     game_engine = Game_Engine()
-    card_engine_player = Card_Engine_Player()
+    card_engine_display = Card_Engine_Display()
     stage = Stage(U.PISTE_LENGTH)
 
     # gui stuff
     curr_gui = 'menu'
 
     # load moves in card
-    card_engine_player.start(U.ALL_MOVES)
+    card_engine_display.start(U.ALL_MOVES)
 
     # game loop
 
@@ -118,12 +131,14 @@ def main():
                 exit()
 
             if curr_gui == 'game':
-                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and not game_engine.is_turn_running():
-                    game_engine.move_selection(card_engine_player)
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and not game_engine.is_turn_running() and not game_engine.is_user_done:
+                    game_engine.move_selection(card_engine_display)
 
         win.fill((0, 0, 0))
         
-        curr_gui = gui.get(curr_gui)([stage, card_engine_player, game_engine])
+        curr_gui = gui.get(curr_gui)(game_engine, [stage, card_engine_display])
+        # if not network.client == None:
+        #     network.send("asdf")
 
         clock.tick(FPS)
         pygame.display.update()

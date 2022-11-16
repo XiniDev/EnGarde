@@ -96,7 +96,7 @@ class Card_Engine():
         self.deck.append(move)
         return move
 
-class Card_Engine_Player(Card_Engine):
+class Card_Engine_Display(Card_Engine):
     def __init__(self) -> None:
         super().__init__()
         self.cards = [None, None, None, None]

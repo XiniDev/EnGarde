@@ -55,3 +55,25 @@ def load_ALL_MOVES() -> None:
                     actions.append(Backwards())
         ALL_MOVES[name] = tuple(actions)
     print(ALL_MOVES)
+
+
+def convert_action(symbol: str) -> Action:
+    match symbol:
+        case 'x':
+            return Hit()
+        case 'X':
+            return Smash()
+        case 'b':
+            return Block()
+        case 'B':
+            return Stance()
+        case '_':
+            return Blank()
+        case '-':
+            return Charge()
+        case '=':
+            return Push()
+        case '>':
+            return Forwards()
+        case '<':
+            return Backwards()

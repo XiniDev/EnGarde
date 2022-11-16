@@ -7,30 +7,23 @@ PORT = 5555
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.bind((IP, PORT))
 
-# determines if it is player 1 turn to connect
-is_p1 = True
+# shows how many players are in the server
+total_players = 0
 
 # variables for storing player 1 and 2
-player_1 = None
-player_2 = None
+players = {}
 
 def conn_handler(conn, addr):
     # globals
-    global is_p1, player_1, player_2
+    global total_players, players
 
     # connected
     print("Client connected on: ", conn)
     
     # connect player 1 and player 2
-    global player_1, player_2
-
-    if is_p1 == True:
-        is_p1 = False
-        print("Player 1 has connected")
-        player_1 = conn
-    else:
-        print("Player 2 has connected")
-        player_2 = conn
+    total_players += 1
+    print(f"Player {total_players} has connected")
+    players[conn] = total_players
 
     time.sleep(1)
 
@@ -40,20 +33,30 @@ def conn_handler(conn, addr):
             data = conn.recv(2048)
             reply = data.decode('utf-8')
             if not data:
-                print(f"{addr} has disconnected")
+                print(f"Player {players[conn]} with address: {addr} has disconnected")
                 conn.send(str.encode("You have disconnected"))
+                print("broke because not data")
                 break
             else:
-                print("Recieved: " + reply)
-                print("Sending: " + reply)
-            conn.sendall(str.encode(reply))
-            # if is_p1:
-            #     player_1.send(bytes(data))
-            # else:
-            #     player_2.send(bytes(data))
+                print(f"Recieved: {reply}")
+                print(f"Sending: {reply}")
+            if len(players) < 2:
+                conn.sendall(str.encode(reply))
+            else:
+                for key in players:
+                    if conn != key:
+                        key.sendall(str.encode(reply))
         except:
+            print("broke on exception")
             break
-    
+
+    popped = players.pop(conn)
+    if popped < total_players:
+        for k, v in players.items():
+            if v > popped:
+                v -= 1
+    total_players -= 1
+
     # end connection
     print("Client disconnected on: ", conn)
     conn.close()

@@ -1,8 +1,9 @@
 import pygame
 
 import utils as U
-import network as network
 import action_logic as al
+
+from network import *
 
 from action import *
 from card_engine import *
@@ -66,17 +67,20 @@ class Game_Engine():
         self.is_sp = is_sp
         self.set_ai()
 
-    def send_data(self) -> str:
+    def send_data(self, network: Network) -> str:
         data = ','.join([i.symbol for i in self.curr_actions]) + ';' + ','.join([i.symbol for i in self.past_actions])
         return network.send(data)
 
-    def parse_data(self, data: str) -> tuple[list[Action]]:
+    def parse_data(self, data: str) -> None:
         try:
             parsed = data.split(';')
-            curr, past = parsed[0].split(','), parsed(';')[1].split(',')
-            return curr, past
+            curr, past = parsed[0].split(','), parsed[1].split(',')
+            if len(curr) == 6:
+                curr = [U.convert_action(symbol) for symbol in curr]
+                past = [U.convert_action(symbol) for symbol in past if symbol != '']
+                self.opp_actions, self.opp_actions_past = curr, past
         except:
-            return [Blank()] * 6, [Blank()] * 6
+            pass
     
     def display_score(self, win: pygame.Surface) -> None:
         score = pygame.font.SysFont('Comic Sans MS', 30).render(str(self.score[0]) + " : " + str(self.score[1]), False, (255, 255, 255))
@@ -108,7 +112,7 @@ class Game_Engine():
     
     def resolve_turn(self) -> None:
         self.update_distance()
-        print(network.client)
+        # print(network.client)
         if self.running_turn:
             if self.frames == ANIMATION_FRAMES:
                 self.out_detection()
@@ -129,8 +133,8 @@ class Game_Engine():
             else:
                 # recieve connection signal (if recieve signal -> self.running_turn = True)
                 # send curr actions to run on other screen, send past actions to display what they have done previously
-                self.opp_actions, self.opp_actions_past = self.parse_data(self.send_data())
-                self.running_turn = True
+                if not self.opp_actions == []:
+                    self.running_turn = True
     
     def is_turn_running(self) -> bool:
         return self.running_turn
@@ -144,7 +148,7 @@ class Game_Engine():
                 if card_engine.cards[i].collidepoint(pygame.mouse.get_pos()):
                     move = card_engine.play_move(i)
                     self.append_actions(move)
-                    self.run_turn(move)
+                    self.update_slots(move)
 
     def append_actions(self, move: Move) -> None:
         value = ACTIONS_MAX - len(self.curr_actions)
@@ -152,7 +156,7 @@ class Game_Engine():
         self.curr_actions.extend(split[0])
         self.futr_actions.extend(split[1])
 
-    def run_turn(self, move: Move) -> None:
+    def update_slots(self, move: Move) -> None:
         if move.slots >= self.available_slots:
             self.available_slots = ACTIONS_MAX - (move.slots - self.available_slots)
             self.user_done()
@@ -203,36 +207,8 @@ class Game_Engine():
         print(f"User: {a_1} ; {states_1} | Opp: {a_2} ; {states_2} | Distance: {self.distance}")
 
     def resolve_action(self) -> None:
-        # user_action = self.curr_actions[self.action - 1]
-        # opp_action = self.opp_actions[self.action - 1]
-        # self.resolve_match(user_action, 0)
-        # self.resolve_match(opp_action, 1)
         self.resolve_movement()
         self.resolve_score()
-
-    # def resolve_match(self, action: Action, pid: int) -> None:
-    #     # ACTION_SYMBOLS = ['x', 'X', 'b', 'B', '_', '-', '=', '>', '<']
-    #     # priority is < then B then b then X then x then = then > then - then _
-    #     # still need to figure out whats the best way to code this :(
-    #     match action:
-    #         case Hit():
-    #             self.resolve_hit(action, pid)
-    #         case Smash():
-    #             self.resolve_smash(action, pid)
-    #         case Block():
-    #             self.resolve_block(action, pid)
-    #         case Stance():
-    #             self.resolve_stance(action, pid)
-    #         case Blank():
-    #             self.resolve_blank(action, pid)
-    #         case Charge():
-    #             self.resolve_charge(action, pid)
-    #         case Push():
-    #             self.resolve_push(action, pid)
-    #         case Forwards():
-    #             self.resolve_forwards(action, pid)
-    #         case Backwards():
-    #             self.resolve_backwards(action, pid)
     
     def resolve_movement(self) -> None:
         for i in range(2):
@@ -246,47 +222,56 @@ class Game_Engine():
             if al.states[0]['score'] == 1 or al.states[1]['score'] == 1:
                 self.scored(al.states[0]['score'], al.states[1]['score'])
     
-    # def resolve_hit(self, action: Action, pid: int) -> None:
-    #     self.reset_charge(pid)
-    #     if self.frames == 20:
-    #         if action.state['score']:
-    #             self.scored(pid)
+    # potentially keep for animation
 
-    # def resolve_smash(self, action: Action, pid: int) -> None:
-    #     if action.state['move']:
-    #         self.player[pid].pos_update(1, self.frames, ANIMATION_FRAMES)
-    #     if action.state['push']:
-    #         self.player[pid * -1 + 1].pos_update(-1, self.frames, ANIMATION_FRAMES)
-    #     if self.frames == 20:
-    #         self.reset_charge(pid)
-    #         if action.state['score']:
-    #             self.scored(pid)
-
-    # def resolve_block(self, action: Action, pid: int) -> None:
+    # def animation(self, action: Action, pid: int) -> None:
+    #     # ACTION_SYMBOLS = ['x', 'X', 'b', 'B', '_', '-', '=', '>', '<']
+    #     match action:
+    #         case Hit():
+    #             self.hit_animation(action, pid)
+    #         case Smash():
+    #             self.smash_animation(action, pid)
+    #         case Block():
+    #             self.block_animation(action, pid)
+    #         case Stance():
+    #             self.stance_animation(action, pid)
+    #         case Blank():
+    #             self.blank_animation(action, pid)
+    #         case Charge():
+    #             self.charge_animation(action, pid)
+    #         case Push():
+    #             self.push_animation(action, pid)
+    #         case Forwards():
+    #             self.forwards_animation(action, pid)
+    #         case Backwards():
+    #             self.backwards_animation(action, pid)
+    
+    # def hit_animation(self, action: Action, pid: int) -> None:
     #     pass
 
-    # def resolve_stance(self, action: Action, pid: int) -> None:
+    # def smash_animation(self, action: Action, pid: int) -> None:
     #     pass
 
-    # def resolve_blank(self, action: Action, pid: int) -> None:
+    # def block_animation(self, action: Action, pid: int) -> None:
     #     pass
 
-    # def resolve_charge(self, action: Action, pid: int) -> None:
+    # def stance_animation(self, action: Action, pid: int) -> None:
     #     pass
 
-    # def resolve_push(self, action: Action, pid: int) -> None:
-    #     if action.state['move']:
-    #         self.player[pid].pos_update(1, self.frames, ANIMATION_FRAMES)
-    #     if action.state['push']:
-    #         self.player[pid * -1 + 1].pos_update(-1, self.frames, ANIMATION_FRAMES)
+    # def blank_animation(self, action: Action, pid: int) -> None:
+    #     pass
 
-    # def resolve_forwards(self, action: Action, pid: int) -> None:
-    #     if action.state['move']:
-    #         self.player[pid].pos_update(1, self.frames, ANIMATION_FRAMES)
+    # def charge_animation(self, action: Action, pid: int) -> None:
+    #     pass
 
-    # def resolve_backwards(self, action: Action, pid: int) -> None:
-    #     if action.state['move']:
-    #         self.player[pid].pos_update(-1, self.frames, ANIMATION_FRAMES)
+    # def push_animation(self, action: Action, pid: int) -> None:
+    #     pass
+
+    # def forwards_animation(self, action: Action, pid: int) -> None:
+    #     pass
+
+    # def backwards_animation(self, action: Action, pid: int) -> None:
+    #     pass
 
     def scored(self, p1: int, p2: int) -> None:
         self.score[0] += p1
@@ -298,6 +283,10 @@ class Game_Engine():
         self.action = 1
         self.frames = -1
         self.available_slots = ACTIONS_MAX
+        if self.is_sp:
+            self.ai.update_memory(self.curr_actions)
+            self.ai.reset_turn()
+            print(self.ai.opp_past_actions)
         self.player[0].reset_pos()
         self.player[1].reset_pos()
         self.futr_actions = []
@@ -305,8 +294,6 @@ class Game_Engine():
         self.opp_actions = []
         self.reset_states()
         self.reset_actions()
-        if self.is_sp:
-            self.ai.reset_turn()
 
     def reset_states(self) -> None:
         self.update_distance()
