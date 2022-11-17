@@ -7,6 +7,15 @@ states = [{
             'charge' : 0
           } for i in range(2)]
 
+def reset_states() -> None:
+    global states
+    states = [{
+                'score' : 0,
+                'push' : 0,
+                'move' : 0,
+                'charge' : 0
+              } for i in range(2)]
+
 def compute(a_1: Action, a_2: Action, distance: int) -> None:
     global states
     score = score_function(a_1, a_2, distance)

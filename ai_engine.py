@@ -24,15 +24,19 @@ class AI_Engine():
 
         # hyperparameters
 
-        self.TURN_MEMORY = 3
+        self.TURN_MEMORY = 4
 
         # memory
 
-        self.has_remembered = False
-        self.opp_past_actions = [[]] * self.TURN_MEMORY
+        self.has_preprocessed = False
+        self.opp_past_actions = {}
+        self.opp_past_moves = {}
+        self.game_count = 1
+        self.guess_index = 0
         self.curr_deck = deque()
 
     def reset(self) -> None:
+        self.reset_memory()
         self.card_engine.reset()
 
     def start(self) -> None:
@@ -56,13 +60,23 @@ class AI_Engine():
     
     def reset_turn(self) -> None:
         self.available_slots = ACTIONS_MAX
+        self.game_count += 1
+        self.guess_index = 0
         self.reset_actions()
     
     def reset_actions(self) -> None:
         self.is_ai_done = False
-        self.has_remembered = False
+        self.has_preprocessed = False
         self.curr_actions = self.futr_actions
         self.futr_actions = []
+    
+    def reset_memory(self) -> None:
+        self.has_preprocessed = False
+        self.opp_past_actions = {}
+        self.opp_past_moves = {}
+        self.game_count = 1
+        self.guess_index = 0
+        self.curr_deck = deque()
 
     # decision stuff
 
@@ -74,10 +88,12 @@ class AI_Engine():
         print(f"p_pos: {mat_pos_1} | a_pos: {mat_pos_2} | p_past: {opp_past_actions}")
 
         # pre processing
-        if not self.has_remembered:
+        if not self.has_preprocessed:
             self.append_opp_past_actions(opp_past_actions)
+            self.has_preprocessed = True
 
-        print(self.opp_past_actions)
+        print(f"opp_past_actions: {self.opp_past_actions}")
+        print(f"opp_past_moves: {self.opp_past_moves}")
 
         # move selection
         self.move_selection()
@@ -92,12 +108,37 @@ class AI_Engine():
     
     # pre processing
 
-    def append_opp_past_actions(self, opp_past_actions: list[Action]) -> None:
+    def append_opp_past_actions(self, opp_past_actions: list[Action]) -> bool:
         if len(opp_past_actions) == 6:
             if len(self.opp_past_actions) >= self.TURN_MEMORY:
-                self.opp_past_actions.pop(0)
-            self.opp_past_actions.append(opp_past_actions)
-            self.has_remembered = True
+                self.opp_past_actions.pop(self.game_count - self.TURN_MEMORY, None)
+            if not self.opp_past_actions.get(self.game_count):
+                self.opp_past_actions[self.game_count] = []
+            self.opp_past_actions[self.game_count].extend(opp_past_actions)
+            found = True
+            while found:
+                found = self.guess_opp_moves()
+    
+    def guess_opp_moves(self) -> bool:
+        if len(self.opp_past_moves) >= self.TURN_MEMORY:
+            self.opp_past_moves.pop(self.game_count - self.TURN_MEMORY, None)
+        if not self.opp_past_moves.get(self.game_count):
+            self.opp_past_moves[self.game_count] = []
+        guess_range = len(self.opp_past_actions[self.game_count])
+        for i in range(guess_range):
+            l = guess_range - i
+            if self.guess_index >= l:
+                return False
+            check = self.opp_past_actions[self.game_count][self.guess_index:l]
+            for k, v in U.ALL_MOVES.items():
+                print(check)
+                print(v)
+                if tuple(check) == v:
+                    self.opp_past_moves[self.game_count].append(k)
+                    self.guess_index += len(v)
+                    return True
+        return False
+
     
     # decision logic
     

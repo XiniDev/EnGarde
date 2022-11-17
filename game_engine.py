@@ -277,16 +277,20 @@ class Game_Engine():
         self.score[0] += p1
         self.score[1] += p2
         self.reset_turn()
+    
+    def reset_ai_on_score(self) -> None:
+        if self.is_sp:
+            self.ai.append_opp_past_actions(self.curr_actions)
+            self.ai.reset_turn()
+            print(f"opp_past_actions: {self.ai.opp_past_actions}")
+            print(f"opp_past_moves: {self.ai.opp_past_moves}")
 
     def reset_turn(self) -> None:
         self.turn = 1
         self.action = 1
         self.frames = -1
         self.available_slots = ACTIONS_MAX
-        if self.is_sp:
-            self.ai.append_opp_past_actions(self.curr_actions)
-            self.ai.reset_turn()
-            print(self.ai.opp_past_actions)
+        self.reset_ai_on_score()
         self.player[0].reset_pos()
         self.player[1].reset_pos()
         self.futr_actions = []
@@ -294,6 +298,7 @@ class Game_Engine():
         self.opp_actions = []
         self.reset_states()
         self.reset_actions()
+        al.reset_states()
 
     def reset_states(self) -> None:
         self.update_distance()
