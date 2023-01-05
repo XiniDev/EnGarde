@@ -9,19 +9,20 @@ X_CENTER = WIDTH / 2
 Y_CENTER = HEIGHT / 2
 
 PISTE_LENGTH = 7
+ACTIONS_MAX = 6
 
 # actions
 
 ACTION_SYMBOLS = ['x', 'X', 'b', 'B', '_', '-', '=', '>', '<']
 ALL_MOVES_STR = {
-    "Lunge" : "--=x__",
-    "Parry" : "BBBB",
-    "Riposte" : "bb__x_",
-    "Thrust" : "-x__",
-    "Flèche" : "---=X___",
-    "Fake" : "--",
-    "Dodge" : "_<",
-    "Move" : "_>"
+    1: ("Lunge", "--=x__"),
+    2: ("Parry", "BBBB"),
+    3: ("Riposte", "bb__x_"),
+    4: ("Thrust", "-x__"),
+    5: ("Flèche", "---=X___"),
+    6: ("Fake", "--"),
+    7: ("Dodge", "_<"),
+    8: ("Move", "_>")
 }
 
 
@@ -31,9 +32,9 @@ ALL_MOVES = {}
 
 def load_ALL_MOVES() -> None:
     global ALL_MOVES
-    for (name, move_str) in ALL_MOVES_STR.items():
+    for (id, move_info) in ALL_MOVES_STR.items():
         actions = []
-        for action in move_str:
+        for action in move_info[1]:
             match action:
                 case 'x':
                     actions.append(Hit())
@@ -53,7 +54,7 @@ def load_ALL_MOVES() -> None:
                     actions.append(Forwards())
                 case '<':
                     actions.append(Backwards())
-        ALL_MOVES[name] = tuple(actions)
+        ALL_MOVES[id] = (move_info[0], tuple(actions))
     print(ALL_MOVES)
 
 

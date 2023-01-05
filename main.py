@@ -27,7 +27,7 @@ clock = pygame.time.Clock()
 
 pygame.mixer.init()
 pygame.mixer.music.load('assets/music/background_track.wav')
-pygame.mixer.music.set_volume(0.3)
+pygame.mixer.music.set_volume(0) #0.3
 pygame.mixer.music.play(loops = -1)
 
 # end game stuff

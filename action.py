@@ -23,11 +23,6 @@ class Action():
         self.BLOCK = 1
         self.STANCE = 1
 
-        # execute a particular element of this action?
-        self.x_score = 0
-        self.x_move = 0
-        self.x_push = 0
-
     def __repr__(self) -> str:
         return type(self).__name__
 

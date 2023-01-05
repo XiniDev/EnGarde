@@ -12,8 +12,7 @@ from ai_engine import *
 
 # game engine class
 
-ACTIONS_MAX = 6
-ANIMATION_FRAMES = 20
+ANIMATION_FRAMES = 30
 
 class Game_Engine():
     def __init__(self) -> None:
@@ -32,7 +31,7 @@ class Game_Engine():
         self.is_user_done = False               # has user committed their actions
         self.running_turn = False               # run turn variable
 
-        self.available_slots = ACTIONS_MAX
+        self.available_slots = U.ACTIONS_MAX
 
         self.past_actions = []
         self.curr_actions = []
@@ -105,6 +104,7 @@ class Game_Engine():
             win.blit(pygame.font.SysFont('Comic Sans MS', 30).render(action.symbol, False, (255, 255, 255)), (U.X_CENTER - 600 + 50 * index + 15, 100))
         
         # opponent action symbols
+        # if self.running_turn:
         for index, action in enumerate(self.opp_actions):
             win.blit(pygame.font.SysFont('Comic Sans MS', 30).render(action.symbol, False, (255, 255, 255)), (U.X_CENTER + 300 + 50 * index + 15, 50))
         for index, action in enumerate(self.opp_actions_past):
@@ -115,7 +115,6 @@ class Game_Engine():
         # print(network.client)
         if self.running_turn:
             if self.frames == ANIMATION_FRAMES:
-                self.out_detection()
                 self.frames = -1
                 self.next_action()
             elif self.frames == -1:
@@ -127,11 +126,11 @@ class Game_Engine():
         elif self.is_user_done:
             if self.is_sp:
                 # run AI
-                self.opp_actions = self.ai.decision(self.player[0].mat_pos, self.player[1].mat_pos, self.past_actions)
+                self.opp_actions = self.ai.decision(self.player[0].mat_pos, self.player[1].mat_pos, self.past_actions, self.score[0], self.score[1])
                 # self.opp_actions = self.ai.debug_decision()
                 self.running_turn = True
             else:
-                # recieve connection signal (if recieve signal -> self.running_turn = True)
+                # recieve connection signal (if opp_actions are appended, then running_turn = True)
                 # send curr actions to run on other screen, send past actions to display what they have done previously
                 if not self.opp_actions == []:
                     self.running_turn = True
@@ -141,7 +140,7 @@ class Game_Engine():
     
     def move_selection(self, card_engine: Card_Engine) -> None:
         if self.available_slots <= 0:
-            self.available_slots = ACTIONS_MAX + self.available_slots
+            self.available_slots = U.ACTIONS_MAX + self.available_slots
             self.user_done()
         else:
             for i in range(card_engine.HAND_MAX):
@@ -151,14 +150,14 @@ class Game_Engine():
                     self.update_slots(move)
 
     def append_actions(self, move: Move) -> None:
-        value = ACTIONS_MAX - len(self.curr_actions)
+        value = U.ACTIONS_MAX - len(self.curr_actions)
         split = move.split(value)
         self.curr_actions.extend(split[0])
         self.futr_actions.extend(split[1])
 
     def update_slots(self, move: Move) -> None:
         if move.slots >= self.available_slots:
-            self.available_slots = ACTIONS_MAX - (move.slots - self.available_slots)
+            self.available_slots = U.ACTIONS_MAX - (move.slots - self.available_slots)
             self.user_done()
         else:
             self.available_slots = self.available_slots - move.slots
@@ -168,18 +167,10 @@ class Game_Engine():
 
     def update_distance(self) -> None:
         self.distance = self.player[1].mat_pos - self.player[0].mat_pos - 1
-    
-    def out_detection(self) -> None:
-        piste_length = U.PISTE_LENGTH
-        score = [0, 0]
-        for i in range(2):
-            if self.player[i].mat_pos > (piste_length - 1) / 2 or self.player[i].mat_pos < -1 * (piste_length - 1) / 2:
-                score[i] = 1
-                self.scored(score[1], score[0])
 
     def next_action(self) -> None:
         print(f"Turn: {self.turn} | Action: {self.action}")
-        if self.action < ACTIONS_MAX:
+        if self.action < U.ACTIONS_MAX:
             self.action += 1
         else:
             self.action = 1
@@ -187,6 +178,8 @@ class Game_Engine():
     
     def next_turn(self) -> None:
         self.turn += 1
+        if self.is_sp:
+            self.set_ai_states()
         self.reset_actions()
     
     def reset_actions(self) -> None:
@@ -208,7 +201,17 @@ class Game_Engine():
 
     def resolve_action(self) -> None:
         self.resolve_movement()
-        self.resolve_score()
+        if self.frames == ANIMATION_FRAMES:
+            score = self.resolve_score()
+            if not 1 in score:
+                score = self.out_detection()
+
+            # ai stuff
+            self.ai.update_rewards(score[0], score[1], self.action)
+            print(self.ai.rewards)
+
+            if 1 in score:
+                self.scored(score[0], score[1])
     
     def resolve_movement(self) -> None:
         for i in range(2):
@@ -218,9 +221,15 @@ class Game_Engine():
                     self.player[i * -1 + 1].pos_update(-1, self.frames, ANIMATION_FRAMES)
 
     def resolve_score(self) -> None:  # thnk of something better HERE
-        if self.frames == 20:
-            if al.states[0]['score'] == 1 or al.states[1]['score'] == 1:
-                self.scored(al.states[0]['score'], al.states[1]['score'])
+        return [al.states[0]['score'], al.states[1]['score']]
+    
+    def out_detection(self) -> None:
+        piste_length = U.PISTE_LENGTH
+        score = [0, 0]
+        for i in range(2):
+            if self.player[i].mat_pos > (piste_length - 1) / 2 or self.player[i].mat_pos < -1 * (piste_length - 1) / 2:
+                score[i * -1 + 1] = 1
+        return score
     
     # potentially keep for animation
 
@@ -278,18 +287,26 @@ class Game_Engine():
         self.score[1] += p2
         self.reset_turn()
     
+    def set_ai_states(self) -> None:
+        # not sure bout this yet, but potentially record position back at -1 and 1
+        # this is because one side scored, so that means the ai should record positions back to default, as the game resets
+        # instead of recording position ended when scoring, not sure bout this yet tho
+        # original self.player[0].mat_pos, self.player[1].mat_pos
+        self.ai.set_states(self.player[0].mat_pos, self.player[1].mat_pos, self.curr_actions, self.score[0], self.score[1], self.turn)
+        print(f"opp_past_actions: {self.ai.opp_past_actions}")
+        print(f"agent state: {self.ai.state}")
+        # print(f"opp_past_moves: {self.ai.opp_past_moves}")
+    
     def reset_ai_on_score(self) -> None:
         if self.is_sp:
-            self.ai.append_opp_past_actions(self.curr_actions)
+            self.set_ai_states()
             self.ai.reset_turn()
-            print(f"opp_past_actions: {self.ai.opp_past_actions}")
-            print(f"opp_past_moves: {self.ai.opp_past_moves}")
 
     def reset_turn(self) -> None:
         self.turn = 1
         self.action = 1
         self.frames = -1
-        self.available_slots = ACTIONS_MAX
+        self.available_slots = U.ACTIONS_MAX
         self.reset_ai_on_score()
         self.player[0].reset_pos()
         self.player[1].reset_pos()

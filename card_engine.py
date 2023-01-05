@@ -6,18 +6,20 @@ from collections import deque
 import utils as U
 
 class Move():
-    def __init__(self, name: str, ALL_MOVES: dict) -> None:
-        self.name = None
+    def __init__(self, id: int, ALL_MOVES: dict) -> None:
+        self.id = None
         try:
-            if name in ALL_MOVES:
-                self.name = name
+            if id in ALL_MOVES:
+                self.id = id
             else:
-                raise ValueError('Moves must have a valid name')
+                raise ValueError('Moves must have a valid id')
         except ValueError as exp:
-            print("The move: {} does not have a valid name\n{}".format(name, exp))
+            print("The move: {} does not have a valid id\n{}".format(id, exp))
             exit(1)
 
-        self.actions = ALL_MOVES.get(self.name)
+        self.name = ALL_MOVES.get(self.id)[0]
+
+        self.actions = ALL_MOVES.get(self.id)[1]
 
         self.slots = len(self.actions)
 
@@ -55,8 +57,8 @@ class Card_Engine():
 
         # example moves
         moves = []
-        for name in ALL_MOVES:
-            moves.append(Move(name, ALL_MOVES))
+        for id in ALL_MOVES:
+            moves.append(Move(id, ALL_MOVES))
         self.deck_add_moves(moves)
         
         self.deck_shuffle()
