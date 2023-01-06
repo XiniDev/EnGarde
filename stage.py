@@ -2,6 +2,9 @@ import pygame
 
 import utils as U
 
+LENGTH = 10 * U.SCALE            # temp length until i make mat sprite :)
+SPACING = 5 * U.SCALE
+
 # mat class (piste is made out of multiple mats)
 
 class Mat():
@@ -23,8 +26,6 @@ class Stage():
         pass
     
     def render_mats(self, win: pygame.Surface) -> None:
-        LENGTH = 10 * U.SCALE            # temp length until i make mat sprite :)
-        SPACING = 5 * U.SCALE
         for i in range(self.piste_length):
             # win.blit(img, (), ())     # sprite holder
             pygame.draw.rect(

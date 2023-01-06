@@ -11,6 +11,8 @@ Y_CENTER = HEIGHT / 2
 PISTE_LENGTH = 7
 ACTIONS_MAX = 6
 
+ANIMATION_FRAMES = 20
+
 # actions
 
 ACTION_SYMBOLS = ['x', 'X', 'b', 'B', '_', '-', '=', '>', '<']
@@ -78,3 +80,29 @@ def convert_action(symbol: str) -> Action:
             return Forwards()
         case '<':
             return Backwards()
+
+
+def action_to_numeric(action: Action) -> int:
+        numeric = 0
+        match action:
+            case Hit():
+                numeric = 1
+            case Smash():
+                numeric = 2
+            case Block():
+                numeric = 3
+            case Stance():
+                numeric = 4
+            case Blank():
+                numeric = 5
+            case Charge():
+                numeric = 6
+            case Push():
+                numeric = 7
+            case Forwards():
+                numeric = 8
+            case Backwards():
+                numeric = 9
+            case _:
+                numeric = 0
+        return numeric

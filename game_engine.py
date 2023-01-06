@@ -12,8 +12,6 @@ from ai_engine import *
 
 # game engine class
 
-ANIMATION_FRAMES = 30
-
 class Game_Engine():
     def __init__(self) -> None:
         self.is_sp = None                      # determines if the game is singleplayer or multiplayer
@@ -42,14 +40,17 @@ class Game_Engine():
 
         # states variables
         self.distance = self.player[1].mat_pos - self.player[0].mat_pos - 1
+
+        # for animation
+        self.action_check = (Blank(), al.states[0], Blank(), al.states[1])
     
     def update(self, win: pygame.Surface) -> None:
         self.display_score(win)
         self.display_turn(win)
         self.display_actions(win)
         self.resolve_turn()
-        self.player[0].update(win)
-        self.player[1].update(win)
+        self.player[0].update(win, 0, self.frames, self.action_check[0], self.action_check[1])
+        self.player[1].update(win, 1, self.frames, self.action_check[2], self.action_check[3])
     
     def reset(self) -> None:
         self.score = [0, 0]
@@ -65,21 +66,6 @@ class Game_Engine():
     def set_sp(self, is_sp: bool) -> None:
         self.is_sp = is_sp
         self.set_ai()
-
-    def send_data(self, network: Network) -> str:
-        data = ','.join([i.symbol for i in self.curr_actions]) + ';' + ','.join([i.symbol for i in self.past_actions])
-        return network.send(data)
-
-    def parse_data(self, data: str) -> None:
-        try:
-            parsed = data.split(';')
-            curr, past = parsed[0].split(','), parsed[1].split(',')
-            if len(curr) == 6:
-                curr = [U.convert_action(symbol) for symbol in curr]
-                past = [U.convert_action(symbol) for symbol in past if symbol != '']
-                self.opp_actions, self.opp_actions_past = curr, past
-        except:
-            pass
     
     def display_score(self, win: pygame.Surface) -> None:
         score = pygame.font.SysFont('Comic Sans MS', 30).render(str(self.score[0]) + " : " + str(self.score[1]), False, (255, 255, 255))
@@ -114,7 +100,7 @@ class Game_Engine():
         self.update_distance()
         # print(network.client)
         if self.running_turn:
-            if self.frames == ANIMATION_FRAMES:
+            if self.frames == U.ANIMATION_FRAMES:
                 self.frames = -1
                 self.next_action()
             elif self.frames == -1:
@@ -126,7 +112,7 @@ class Game_Engine():
         elif self.is_user_done:
             if self.is_sp:
                 # run AI
-                self.opp_actions = self.ai.decision(self.player[0].mat_pos, self.player[1].mat_pos, self.past_actions, self.score[0], self.score[1])
+                self.opp_actions = self.ai.decision([self.player[0].mat_pos, self.player[1].mat_pos], self.past_actions, self.score, self.turn)
                 # self.opp_actions = self.ai.debug_decision()
                 self.running_turn = True
             else:
@@ -134,6 +120,112 @@ class Game_Engine():
                 # send curr actions to run on other screen, send past actions to display what they have done previously
                 if not self.opp_actions == []:
                     self.running_turn = True
+
+    def next_action(self) -> None:
+        print(f"Turn: {self.turn} | Action: {self.action}")
+        if self.action < U.ACTIONS_MAX:
+            self.action += 1
+        else:
+            self.action = 1
+            self.next_turn()
+    
+    def next_turn(self) -> None:
+        self.turn += 1
+        if self.is_sp:
+            self.set_ai_states()
+        self.reset_actions()
+
+    def update_distance(self) -> None:
+        self.distance = self.player[1].mat_pos - self.player[0].mat_pos - 1
+    
+    def reset_actions(self) -> None:
+        self.is_user_done = False
+        self.running_turn = False
+        self.past_actions = self.curr_actions
+        self.curr_actions = self.futr_actions
+        self.futr_actions = []
+        self.opp_actions_past = self.opp_actions
+        self.opp_actions = []
+    
+    def check_action(self) -> None:
+        a_1 = self.curr_actions[self.action - 1]
+        a_2 = self.opp_actions[self.action - 1]
+        al.compute(a_1, a_2, self.distance)
+        states_1 = {**al.states[0], **{'mat_pos': self.player[0].mat_pos}}
+        states_2 = {**al.states[1], **{'mat_pos': self.player[1].mat_pos}}
+        print(f"User: {a_1} ; {states_1} | Opp: {a_2} ; {states_2} | Distance: {self.distance}")
+        self.action_check = (a_1, al.states[0], a_2, al.states[1])
+
+    def resolve_action(self) -> None:
+        self.resolve_movement()
+        if self.frames == U.ANIMATION_FRAMES:
+            score = self.resolve_score()
+            if not 1 in score:
+                score = self.out_detection()
+
+            # ai stuff
+            self.ai.update_rewards(score[0], score[1], self.action)
+            print(self.ai.rewards)
+
+            if 1 in score:
+                self.scored(score[0], score[1])
+    
+    def resolve_movement(self) -> None:
+        for i in range(2):
+            self.player[i].pos_update(al.states[i]['move'], self.frames)
+            if al.states[i]['push'] == 1:
+                if self.distance == 0:
+                    self.player[i * -1 + 1].pos_update(-1, self.frames)
+
+    def resolve_score(self) -> None:  # thnk of something better HERE
+        return [al.states[0]['score'], al.states[1]['score']]
+    
+    def out_detection(self) -> None:
+        piste_length = U.PISTE_LENGTH
+        score = [0, 0]
+        for i in range(2):
+            if self.player[i].mat_pos > (piste_length - 1) / 2 or self.player[i].mat_pos < -1 * (piste_length - 1) / 2:
+                score[i * -1 + 1] = 1
+        return score
+
+    def scored(self, p1: int, p2: int) -> None:
+        self.score[0] += p1
+        self.score[1] += p2
+        self.reset_turn()
+    
+    def set_ai_states(self) -> None:
+        # not sure bout this yet, but potentially record position back at -1 and 1
+        # this is because one side scored, so that means the ai should record positions back to default, as the game resets
+        # instead of recording position ended when scoring, not sure bout this yet tho
+        # original self.player[0].mat_pos, self.player[1].mat_pos
+        self.ai.set_state(True, [self.player[0].mat_pos, self.player[1].mat_pos], self.curr_actions, self.score, self.turn)
+        # print(f"opp_past_actions: {self.ai.opp_past_actions}")
+        # print(f"opp_past_moves: {self.ai.opp_past_moves}")
+    
+    def reset_ai_on_score(self) -> None:
+        if self.is_sp:
+            self.set_ai_states()
+            self.ai.reset_turn()
+
+    def reset_turn(self) -> None:
+        self.turn = 1
+        self.action = 1
+        self.frames = -1
+        self.available_slots = U.ACTIONS_MAX
+        self.reset_ai_on_score()
+        self.player[0].reset_pos()
+        self.player[1].reset_pos()
+        self.futr_actions = []
+        self.curr_actions = []
+        self.opp_actions = []
+        self.reset_states()
+        self.reset_actions()
+        al.reset_states()
+
+    def reset_states(self) -> None:
+        self.update_distance()
+    
+    # move selection in main
     
     def is_turn_running(self) -> bool:
         return self.running_turn
@@ -165,160 +257,7 @@ class Game_Engine():
     def user_done(self) -> None:
         self.is_user_done = True
 
-    def update_distance(self) -> None:
-        self.distance = self.player[1].mat_pos - self.player[0].mat_pos - 1
-
-    def next_action(self) -> None:
-        print(f"Turn: {self.turn} | Action: {self.action}")
-        if self.action < U.ACTIONS_MAX:
-            self.action += 1
-        else:
-            self.action = 1
-            self.next_turn()
-    
-    def next_turn(self) -> None:
-        self.turn += 1
-        if self.is_sp:
-            self.set_ai_states()
-        self.reset_actions()
-    
-    def reset_actions(self) -> None:
-        self.is_user_done = False
-        self.running_turn = False
-        self.past_actions = self.curr_actions
-        self.curr_actions = self.futr_actions
-        self.futr_actions = []
-        self.opp_actions_past = self.opp_actions
-        self.opp_actions = []
-    
-    def check_action(self) -> None:
-        a_1 = self.curr_actions[self.action - 1]
-        a_2 = self.opp_actions[self.action - 1]
-        al.compute(a_1, a_2, self.distance)
-        states_1 = {**al.states[0], **{'mat_pos': self.player[0].mat_pos}}
-        states_2 = {**al.states[1], **{'mat_pos': self.player[1].mat_pos}}
-        print(f"User: {a_1} ; {states_1} | Opp: {a_2} ; {states_2} | Distance: {self.distance}")
-
-    def resolve_action(self) -> None:
-        self.resolve_movement()
-        if self.frames == ANIMATION_FRAMES:
-            score = self.resolve_score()
-            if not 1 in score:
-                score = self.out_detection()
-
-            # ai stuff
-            self.ai.update_rewards(score[0], score[1], self.action)
-            print(self.ai.rewards)
-
-            if 1 in score:
-                self.scored(score[0], score[1])
-    
-    def resolve_movement(self) -> None:
-        for i in range(2):
-            self.player[i].pos_update(al.states[i]['move'], self.frames, ANIMATION_FRAMES)
-            if al.states[i]['push'] == 1:
-                if self.distance == 0:
-                    self.player[i * -1 + 1].pos_update(-1, self.frames, ANIMATION_FRAMES)
-
-    def resolve_score(self) -> None:  # thnk of something better HERE
-        return [al.states[0]['score'], al.states[1]['score']]
-    
-    def out_detection(self) -> None:
-        piste_length = U.PISTE_LENGTH
-        score = [0, 0]
-        for i in range(2):
-            if self.player[i].mat_pos > (piste_length - 1) / 2 or self.player[i].mat_pos < -1 * (piste_length - 1) / 2:
-                score[i * -1 + 1] = 1
-        return score
-    
-    # potentially keep for animation
-
-    # def animation(self, action: Action, pid: int) -> None:
-    #     # ACTION_SYMBOLS = ['x', 'X', 'b', 'B', '_', '-', '=', '>', '<']
-    #     match action:
-    #         case Hit():
-    #             self.hit_animation(action, pid)
-    #         case Smash():
-    #             self.smash_animation(action, pid)
-    #         case Block():
-    #             self.block_animation(action, pid)
-    #         case Stance():
-    #             self.stance_animation(action, pid)
-    #         case Blank():
-    #             self.blank_animation(action, pid)
-    #         case Charge():
-    #             self.charge_animation(action, pid)
-    #         case Push():
-    #             self.push_animation(action, pid)
-    #         case Forwards():
-    #             self.forwards_animation(action, pid)
-    #         case Backwards():
-    #             self.backwards_animation(action, pid)
-    
-    # def hit_animation(self, action: Action, pid: int) -> None:
-    #     pass
-
-    # def smash_animation(self, action: Action, pid: int) -> None:
-    #     pass
-
-    # def block_animation(self, action: Action, pid: int) -> None:
-    #     pass
-
-    # def stance_animation(self, action: Action, pid: int) -> None:
-    #     pass
-
-    # def blank_animation(self, action: Action, pid: int) -> None:
-    #     pass
-
-    # def charge_animation(self, action: Action, pid: int) -> None:
-    #     pass
-
-    # def push_animation(self, action: Action, pid: int) -> None:
-    #     pass
-
-    # def forwards_animation(self, action: Action, pid: int) -> None:
-    #     pass
-
-    # def backwards_animation(self, action: Action, pid: int) -> None:
-    #     pass
-
-    def scored(self, p1: int, p2: int) -> None:
-        self.score[0] += p1
-        self.score[1] += p2
-        self.reset_turn()
-    
-    def set_ai_states(self) -> None:
-        # not sure bout this yet, but potentially record position back at -1 and 1
-        # this is because one side scored, so that means the ai should record positions back to default, as the game resets
-        # instead of recording position ended when scoring, not sure bout this yet tho
-        # original self.player[0].mat_pos, self.player[1].mat_pos
-        self.ai.set_states(self.player[0].mat_pos, self.player[1].mat_pos, self.curr_actions, self.score[0], self.score[1], self.turn)
-        print(f"opp_past_actions: {self.ai.opp_past_actions}")
-        print(f"agent state: {self.ai.state}")
-        # print(f"opp_past_moves: {self.ai.opp_past_moves}")
-    
-    def reset_ai_on_score(self) -> None:
-        if self.is_sp:
-            self.set_ai_states()
-            self.ai.reset_turn()
-
-    def reset_turn(self) -> None:
-        self.turn = 1
-        self.action = 1
-        self.frames = -1
-        self.available_slots = U.ACTIONS_MAX
-        self.reset_ai_on_score()
-        self.player[0].reset_pos()
-        self.player[1].reset_pos()
-        self.futr_actions = []
-        self.curr_actions = []
-        self.opp_actions = []
-        self.reset_states()
-        self.reset_actions()
-        al.reset_states()
-
-    def reset_states(self) -> None:
-        self.update_distance()
+    # victory checking in main
     
     def check_victory(self) -> int:
         for i in range(2):
@@ -326,3 +265,20 @@ class Game_Engine():
                 print(f"Player {i + 1} wins! Resetting game...")
                 return (i + 1)
         return 0
+    
+    # multiplayer sockets stuff
+
+    def send_data(self, network: Network) -> str:
+        data = ','.join([i.symbol for i in self.curr_actions]) + ';' + ','.join([i.symbol for i in self.past_actions])
+        return network.send(data)
+
+    def parse_data(self, data: str) -> None:
+        try:
+            parsed = data.split(';')
+            curr, past = parsed[0].split(','), parsed[1].split(',')
+            if len(curr) == 6:
+                curr = [U.convert_action(symbol) for symbol in curr]
+                past = [U.convert_action(symbol) for symbol in past if symbol != '']
+                self.opp_actions, self.opp_actions_past = curr, past
+        except:
+            pass

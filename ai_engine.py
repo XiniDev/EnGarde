@@ -28,23 +28,17 @@ class AI_Engine():
 
         # self.TURN_MEMORY = 1
 
-        # memory
-
         # pre-processing
-        # self.has_preprocessed = False
-        # self.opp_past_actions = {}
-        self.opp_past_actions = []
-        # self.game_count = 1
         self.curr_deck = deque()
+
+        # memory
 
         self.old_state = None
         self.state = None
 
         self.total_moves = 0
 
-        # guess stuff
-        # self.opp_past_moves = {}
-        # self.guess_index = 0
+        self.move_selected = -1
 
         # rewards
         self.rewards = [0] * 6
@@ -55,6 +49,105 @@ class AI_Engine():
 
     def start(self) -> None:
         self.card_engine.start(U.ALL_MOVES)
+    
+    def reset_turn(self) -> None:
+        # on score etc...
+        self.available_slots = ACTIONS_MAX
+        self.reset_actions()
+    
+    def reset_actions(self) -> None:
+        self.is_ai_done = False
+        self.past_actions = self.curr_actions
+        self.curr_actions = self.futr_actions
+        self.futr_actions = []
+    
+    def reset_memory(self) -> None:
+
+        # pre-processing
+        self.curr_deck = deque()
+
+        hand = [move.id for move in self.card_engine.hand]
+        mat_pos = [-1, 1]
+        opp_actions = curr_actions = futr_actions = [0, 0, 0, 0, 0, 0]
+        scores = [0, 0]
+        turn = 1
+        self.state = [*hand, *mat_pos, *opp_actions, *curr_actions, *futr_actions, *scores, turn, self.total_moves]
+        self.state = np.array(self.state, dtype=int)
+
+    def update_rewards(self, opp: int, ai: int, action: int) -> None:
+        # no one win = 0, opp win = -10, ai win = 10, tie = 10
+        self.rewards[action - 1] = (ai - opp) * 10 + (ai * opp * 10)
+
+    # decision stuff
+
+    def debug_decision(self) -> list[Action]:
+        return [Charge(), Charge(), Charge(), Push(), Smash(), Blank()]
+
+    def decision(self, mat_pos: list[int], opp_past_actions: list[Action], scores: list[int], turn: int) -> list[Action]:
+        # print(self.card_engine.deck)
+        print(f"p_pos: {mat_pos[0]} | a_pos: {mat_pos[1]} | p_past: {opp_past_actions} | score: {scores[0]} : {scores[1]}")
+
+        # move selection (returns the id of the move)
+        self.move_selected = self.move_selection()
+        self.total_moves += 1
+        print(f"AI Done: {self.is_ai_done}")
+        if self.is_ai_done:
+            result = self.curr_actions
+            self.reset_actions()
+            print(f"AI Curr: {result} | AI Fut: {self.curr_actions} | AI Fut2: {self.futr_actions}")
+            return result
+        else:
+            self.set_state(False, mat_pos, opp_past_actions, scores, turn)
+            return self.decision(mat_pos, opp_past_actions, scores, turn)
+
+    def set_state(self, is_turn_reset: bool, mat_pos: list[int], opp_past_actions: list[Action], scores: list[int], turn: int) -> None:
+        opp_actions = opp_past_actions
+        if len(opp_past_actions) == 0:
+            opp_actions = [0] * U.ACTIONS_MAX
+        self.old_state = self.state
+        self.state = self.get_state(is_turn_reset, mat_pos, opp_actions, scores, turn)
+        self.state = np.array(self.state, dtype=int)
+        # state = self.old_state
+        # action = self.move_selected
+        # new_state = self.state
+        # rewards = not sure yet
+        print(f"agent move: {self.move_selected} | agent state: {self.state}")
+        if is_turn_reset:
+            self.total_moves = 0
+
+    def get_state(self, is_turn_reset: bool, mat_pos: list[int], opp_past_actions: list[Action], scores: list[int], turn: int) -> list[int]:
+        # convert to numeric so that the actions are stored much better in memory
+        opp_actions = self.actions_to_numeric(opp_past_actions)
+        hand = [move.id for move in self.card_engine.hand]
+        # here, self.curr_actions = future actions, and self.past_actions = current actions, because this is checked after reset
+        curr_actions = self.actions_to_numeric(self.past_actions)
+        futr_actions = self.actions_to_numeric(self.curr_actions)
+        return [*hand, *mat_pos, *opp_actions, *curr_actions, *futr_actions, *scores, turn, self.total_moves]
+    
+    def actions_to_numeric(self, actions: list[Action]) -> list[int]:
+        actions_num = [0] * U.ACTIONS_MAX
+        
+        for i, action in enumerate(actions):
+            actions_num[i] = U.action_to_numeric(action)
+        return actions_num
+
+    
+    # decision logic
+    
+    def move_selection(self) -> int:
+        if self.available_slots <= 0:
+            self.available_slots = ACTIONS_MAX + self.available_slots
+            self.ai_done()
+            res = -1
+        else:
+            move = self.card_engine.play_move(int(random.random() * 4))
+            self.append_actions(move)
+            self.update_slots(move)
+            self.remember_move(move)
+            # print(self.card_engine.deck)                  # by 4 moves it should know exactly the order of its deck
+            print(self.curr_deck)
+            res = move.id
+        return res
 
     def append_actions(self, move: Move) -> None:
         value = ACTIONS_MAX - len(self.curr_actions)
@@ -72,142 +165,14 @@ class AI_Engine():
     def ai_done(self) -> None:
         self.is_ai_done = True
     
-    def reset_turn(self) -> None:
-        # on score etc...
-        self.available_slots = ACTIONS_MAX
-        # pre-processing
-        # self.game_count += 1
-        # guess
-        # self.guess_index = 0
-        self.reset_actions()
-    
-    def reset_actions(self) -> None:
-        self.is_ai_done = False
-        # self.has_preprocessed = False
-        self.past_actions = self.curr_actions
-        self.curr_actions = self.futr_actions
-        self.futr_actions = []
-    
-    def reset_memory(self) -> None:
-        # pre-processing
-        # self.has_preprocessed = False
-        # self.opp_past_actions = {}
-        self.opp_past_actions = []
-        # self.game_count = 1
-        self.curr_deck = deque()
-        # guess
-        # self.opp_past_moves = {}
-        # self.guess_index = 0
-
-        hand = [move.id for move in self.card_engine.hand]
-        self.state = [*hand, -1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, self.total_moves, 0, 0, 0, 0, 0, 0]
-
-    def update_rewards(self, opp: int, ai: int, action: int) -> None:
-        # no one win = 0, opp win = -10, ai win = 10, tie = 10
-        self.rewards[action - 1] = (ai - opp) * 10 + (ai * opp * 10)
-
-    # decision stuff
-
-    def debug_decision(self) -> list[Action]:
-        return [Charge(), Charge(), Charge(), Push(), Smash(), Blank()]
-
-    def decision(self, mat_pos_1: int, mat_pos_2: int, opp_past_actions: list[Action], player_score: int, agent_score: int) -> list[Action]:
-        # print(self.card_engine.deck)
-        print(f"p_pos: {mat_pos_1} | a_pos: {mat_pos_2} | p_past: {opp_past_actions} | score: {player_score} : {agent_score}")
-
-        # pre processing
-        # if not self.has_preprocessed:
-        #     self.append_opp_past_actions(mat_pos_1, mat_pos_2, opp_past_actions, player_score, agent_score)
-        #     self.has_preprocessed = True
-
-        # print(f"opp_past_actions: {self.opp_past_actions}")
-        # print(f"agent state: {self.state}")
-        # print(f"opp_past_moves: {self.opp_past_moves}")
-
-        # move selection
-        self.move_selection()
-        self.total_moves += 1
-        print(f"AI Done: {self.is_ai_done}")
-        if self.is_ai_done:
-            result = self.curr_actions
-            self.reset_actions()
-            print(f"AI Curr: {result} | AI Fut: {self.curr_actions} | AI Fut2: {self.futr_actions}")
-            return result
-        else:
-            return self.decision(mat_pos_1, mat_pos_2, opp_past_actions, player_score, agent_score)
-    
-
-    def set_states(self, mat_pos_1: int, mat_pos_2: int, opp_past_actions: list[Action], player_score: int, agent_score: int, turn: int) -> bool:
-        if len(opp_past_actions) == 6:
-            self.old_state = self.state
-            if len(self.opp_past_actions) >= U.ACTIONS_MAX:
-                self.opp_past_actions = self.opp_past_actions[U.ACTIONS_MAX:]
-            self.opp_past_actions.extend(opp_past_actions)
-            self.get_states(mat_pos_1, mat_pos_2, player_score, agent_score, turn)
-            self.total_moves = 0
-            # no need to guess for now
-            # found = True
-            # while found:
-            #     found = self.guess_opp_moves()
-
-    def get_states(self, mat_pos_1: int, mat_pos_2: int, player_score: int, agent_score: int, turn: int) -> None:
-        # convert to numeric so that the actions are stored much better in memory
-        opp_actions = self.actions_to_numeric(self.opp_past_actions)
-        hand = [move.id for move in self.card_engine.hand]
-        # at this point, curr_actions = future actions, and past_actions = current actions because this is checked after reset
-        curr_actions = self.actions_to_numeric(self.past_actions)
-        futr_actions = self.actions_to_numeric(self.curr_actions)
-        self.state = [*hand, mat_pos_1, mat_pos_2, *opp_actions, *curr_actions, *futr_actions, player_score, agent_score, turn, self.total_moves]
-        self.state = np.array(self.state, dtype=int)
-    
-    def actions_to_numeric(self, actions: list[Action]) -> list[int]:
-        actions_num = [0] * U.ACTIONS_MAX
-
-        for i, action in enumerate(actions):
-            numeric = 0
-            match action:
-                case Hit():
-                    numeric = 1
-                case Smash():
-                    numeric = 2
-                case Block():
-                    numeric = 3
-                case Stance():
-                    numeric = 4
-                case Blank():
-                    numeric = 5
-                case Charge():
-                    numeric = 6
-                case Push():
-                    numeric = 7
-                case Forwards():
-                    numeric = 8
-                case Backwards():
-                    numeric = 9
-            actions_num[i] = numeric
-        return actions_num
-
-    
-    # decision logic
-    
-    def move_selection(self) -> None:
-        if self.available_slots <= 0:
-            self.available_slots = ACTIONS_MAX + self.available_slots
-            self.ai_done()
-        else:
-            move = self.card_engine.play_move(int(random.random() * 4))
-            self.append_actions(move)
-            self.update_slots(move)
-            self.remember_move(move)
-            # print(self.card_engine.deck)                  # by 4 moves it should know exactly the order of its deck
-            print(self.curr_deck)
-    
     # post processing
 
     def remember_move(self, move: Move) -> None:
         if len(self.curr_deck) >= self.card_engine.DECK_MAX - self.card_engine.HAND_MAX:
             self.curr_deck.popleft()
         self.curr_deck.append(move)
+
+
 
 
     # extra stuff
