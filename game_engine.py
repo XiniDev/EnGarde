@@ -132,7 +132,7 @@ class Game_Engine():
     def next_turn(self) -> None:
         self.turn += 1
         if self.is_sp:
-            self.set_ai_states()
+            self.set_ai_states(0)
         self.reset_actions()
 
     def update_distance(self) -> None:
@@ -164,8 +164,8 @@ class Game_Engine():
                 score = self.out_detection()
 
             # ai stuff
-            self.ai.update_rewards(score[0], score[1], self.action)
-            print(self.ai.rewards)
+            # self.ai.update_rewards(score[0], score[1], self.action)
+            # print(self.ai.rewards)
 
             if 1 in score:
                 self.scored(score[0], score[1])
@@ -191,20 +191,31 @@ class Game_Engine():
     def scored(self, p1: int, p2: int) -> None:
         self.score[0] += p1
         self.score[1] += p2
+        self.reset_ai_on_score(p1, p2)
         self.reset_turn()
     
-    def set_ai_states(self) -> None:
+    def reset_ai_on_score(self, p1: int, p2: int) -> None:
+        if self.is_sp:
+            # have to do something with tie, because tie = 0, but cannot = 0
+            buffer = 1
+            reward_score = 2 * (p2 - p1) + buffer
+            # now rewards are:
+            # -1 = lose
+            # 1 = tie
+            # 3 = win
+            self.set_ai_states(reward_score)
+    
+    def set_ai_states(self, reward_score: int) -> None:
         # not sure bout this yet, but potentially record position back at -1 and 1
         # this is because one side scored, so that means the ai should record positions back to default, as the game resets
         # instead of recording position ended when scoring, not sure bout this yet tho
         # original self.player[0].mat_pos, self.player[1].mat_pos
-        self.ai.set_state(True, [self.player[0].mat_pos, self.player[1].mat_pos], self.curr_actions, self.score, self.turn)
+        self.ai.set_memory(True, reward_score, [self.player[0].mat_pos, self.player[1].mat_pos], self.curr_actions, self.score, self.turn)
         # print(f"opp_past_actions: {self.ai.opp_past_actions}")
         # print(f"opp_past_moves: {self.ai.opp_past_moves}")
     
-    def reset_ai_on_score(self) -> None:
+    def reset_ai_turn(self) -> None:
         if self.is_sp:
-            self.set_ai_states()
             self.ai.reset_turn()
 
     def reset_turn(self) -> None:
@@ -212,7 +223,7 @@ class Game_Engine():
         self.action = 1
         self.frames = -1
         self.available_slots = U.ACTIONS_MAX
-        self.reset_ai_on_score()
+        self.reset_ai_turn()
         self.player[0].reset_pos()
         self.player[1].reset_pos()
         self.futr_actions = []

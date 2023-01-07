@@ -41,7 +41,7 @@ class AI_Engine():
         self.move_selected = -1
 
         # rewards
-        self.rewards = [0] * 6
+        self.reward = 0
 
     def reset(self) -> None:
         self.reset_memory()
@@ -74,9 +74,9 @@ class AI_Engine():
         self.state = [*hand, *mat_pos, *opp_actions, *curr_actions, *futr_actions, *scores, turn, self.total_moves]
         self.state = np.array(self.state, dtype=int)
 
-    def update_rewards(self, opp: int, ai: int, action: int) -> None:
-        # no one win = 0, opp win = -10, ai win = 10, tie = 10
-        self.rewards[action - 1] = (ai - opp) * 10 + (ai * opp * 10)
+    # def update_rewards(self, opp: int, ai: int, action: int) -> None:
+    #     # no one win = 0, opp win = -10, ai win = 10, tie = 10
+    #     self.rewards[action - 1] = (ai - opp) * 10 + (ai * opp * 10)
 
     # decision stuff
 
@@ -97,23 +97,30 @@ class AI_Engine():
             print(f"AI Curr: {result} | AI Fut: {self.curr_actions} | AI Fut2: {self.futr_actions}")
             return result
         else:
-            self.set_state(False, mat_pos, opp_past_actions, scores, turn)
+            self.set_memory(False, 0, mat_pos, opp_past_actions, scores, turn)
             return self.decision(mat_pos, opp_past_actions, scores, turn)
 
-    def set_state(self, is_turn_reset: bool, mat_pos: list[int], opp_past_actions: list[Action], scores: list[int], turn: int) -> None:
+    def set_memory(self, is_turn_reset: bool, reward_score: int, mat_pos: list[int], opp_past_actions: list[Action], scores: list[int], turn: int) -> None:
         opp_actions = opp_past_actions
         if len(opp_past_actions) == 0:
             opp_actions = [0] * U.ACTIONS_MAX
         self.old_state = self.state
         self.state = self.get_state(is_turn_reset, mat_pos, opp_actions, scores, turn)
         self.state = np.array(self.state, dtype=int)
-        # state = self.old_state
-        # action = self.move_selected
-        # new_state = self.state
-        # rewards = not sure yet
-        print(f"agent move: {self.move_selected} | agent state: {self.state}")
+
         if is_turn_reset:
             self.total_moves = 0
+        
+        self.reward = self.get_reward(reward_score)
+
+        # print(f"agent move: {self.move_selected} | agent state: {self.state}")
+
+        state = self.old_state
+        action = self.move_selected
+        reward = self.reward
+        new_state = self.state
+
+        
 
     def get_state(self, is_turn_reset: bool, mat_pos: list[int], opp_past_actions: list[Action], scores: list[int], turn: int) -> list[int]:
         # convert to numeric so that the actions are stored much better in memory
@@ -130,6 +137,10 @@ class AI_Engine():
         for i, action in enumerate(actions):
             actions_num[i] = U.action_to_numeric(action)
         return actions_num
+    
+    def get_reward(reward_score: int) -> int:
+        reward = reward_score
+        return reward
 
     
     # decision logic
