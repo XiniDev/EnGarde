@@ -36,11 +36,13 @@ class Move():
 # card engine class
 
 class Card_Engine():
-    def __init__(self) -> None:
+    def __init__(self, no_shuffle=False) -> None:
         self.DECK_MAX = 8
         self.HAND_MAX = 4
         self.deck = deque()
         self.hand = []
+
+        self.no_shuffle = no_shuffle
     
     def reset(self) -> None:
         self.deck_add_moves(self.hand)
@@ -82,7 +84,8 @@ class Card_Engine():
             return False
 
     def deck_shuffle(self) -> None:
-        random.shuffle(self.deck)
+        if not self.no_shuffle:
+            random.shuffle(self.deck)
 
     def draw_move(self) -> None:
         move = self.deck.popleft()
@@ -101,8 +104,8 @@ class Card_Engine():
         return move
 
 class Card_Engine_Display(Card_Engine):
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, no_shuffle=False) -> None:
+        super().__init__(no_shuffle)
         self.cards = [None, None, None, None]
     
     def update(self, win: pygame.Surface) -> None:
@@ -121,3 +124,4 @@ class Card_Engine_Display(Card_Engine):
 
         for i in range(self.HAND_MAX):
             win.blit(pygame.font.SysFont('Comic Sans MS', 30).render("Move: " + str(self.hand[i].name), False, (255, 255, 255)), (x_value[i], 500))
+            win.blit(pygame.font.SysFont('Comic Sans MS', 18).render(str([action.symbol for action in self.hand[i].actions]), False, (255, 255, 255)), (x_value[i], 600))

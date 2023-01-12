@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+import torch.optim as optim
+
 from torch import Tensor
 
 import numpy as np
@@ -25,8 +27,8 @@ class Trainer():
         self.model = model
         self.learning_rate = learning_rate
         self.gamma = gamma
-        # self.optimizer = >??
-        # self.criterion = nn.MSELoss()
+        self.optimizer = optim.Adam(model.parameters(), lr=self.learning_rate)
+        self.criterion = nn.MSELoss()
 
     def train(self, state: np.ndarray, action: int, reward: int, next_state: np.ndarray) -> None:
         state = torch.tensor(state, dtype=torch.float)
@@ -38,6 +40,17 @@ class Trainer():
         Q_new_value = reward + self.gamma * torch.max(self.model(next_state))
         target = Q_value.clone()
         target[torch.argmax(action).item()] = Q_new_value
+
+        self.optimizer.zero_grad()
+        loss = self.criterion(target, Q_value)
+        loss.backward()
+        print(loss.item())
+        self.optimizer.step()
+    
+    def predict(self, state: np.ndarray) -> int:
+        state = torch.tensor(state, dtype=torch.float)
+        Q_value = self.model(state)
+        return torch.argmax(Q_value).item()
 
 
 # STILL LEARNING :(

@@ -8,13 +8,15 @@ from collections import deque
 from action import *
 from card_engine import *
 
+import dqn as dqn
+
 # ai engine class
 
 ACTIONS_MAX = 6
 
 class AI_Engine():
     def __init__(self) -> None:
-        self.card_engine = Card_Engine()
+        self.card_engine = Card_Engine(no_shuffle=True)
 
         self.is_ai_done = False
         
@@ -40,8 +42,14 @@ class AI_Engine():
 
         self.move_selected = -1
 
+        self.scores = [0, 0]
+
         # rewards
         self.reward = 0
+
+        # deep q network
+        self.model = dqn.Network(24, 256, 4)
+        self.trainer = dqn.Trainer(self.model, 0.001, 0.9)
 
     def reset(self) -> None:
         self.reset_memory()
@@ -69,9 +77,9 @@ class AI_Engine():
         hand = [move.id for move in self.card_engine.hand]
         mat_pos = [-1, 1]
         opp_actions = curr_actions = futr_actions = [0, 0, 0, 0, 0, 0]
-        scores = [0, 0]
+        self.scores = [0, 0]
         turn = 1
-        self.state = [*hand, *mat_pos, *opp_actions, *curr_actions, *futr_actions, *scores, turn, self.total_moves]
+        self.state = [*hand, *mat_pos, *opp_actions, *curr_actions, *futr_actions]
         self.state = np.array(self.state, dtype=int)
 
     # def update_rewards(self, opp: int, ai: int, action: int) -> None:
@@ -108,6 +116,8 @@ class AI_Engine():
         self.state = self.get_state(is_turn_reset, mat_pos, opp_actions, scores, turn)
         self.state = np.array(self.state, dtype=int)
 
+        self.scores = scores
+
         if is_turn_reset:
             self.total_moves = 0
         
@@ -120,6 +130,8 @@ class AI_Engine():
         reward = self.reward
         new_state = self.state
 
+        self.trainer.train(state, action, reward, new_state)
+        # print(self.trainer.model)
         
 
     def get_state(self, is_turn_reset: bool, mat_pos: list[int], opp_past_actions: list[Action], scores: list[int], turn: int) -> list[int]:
@@ -129,7 +141,8 @@ class AI_Engine():
         # here, self.curr_actions = future actions, and self.past_actions = current actions, because this is checked after reset
         curr_actions = self.actions_to_numeric(self.past_actions)
         futr_actions = self.actions_to_numeric(self.curr_actions)
-        return [*hand, *mat_pos, *opp_actions, *curr_actions, *futr_actions, *scores, turn, self.total_moves]
+        # , *scores, turn, self.total_moves???
+        return [*hand, *mat_pos, *opp_actions, *curr_actions, *futr_actions]
     
     def actions_to_numeric(self, actions: list[Action]) -> list[int]:
         actions_num = [0] * U.ACTIONS_MAX
@@ -138,7 +151,7 @@ class AI_Engine():
             actions_num[i] = U.action_to_numeric(action)
         return actions_num
     
-    def get_reward(reward_score: int) -> int:
+    def get_reward(self, reward_score: int) -> int:
         reward = reward_score
         return reward
 
@@ -151,7 +164,7 @@ class AI_Engine():
             self.ai_done()
             res = -1
         else:
-            move = self.card_engine.play_move(int(random.random() * 4))
+            move = self.card_engine.play_move(self.get_action())
             self.append_actions(move)
             self.update_slots(move)
             self.remember_move(move)
@@ -159,6 +172,20 @@ class AI_Engine():
             print(self.curr_deck)
             res = move.id
         return res
+    
+    def get_action(self) -> int:
+        p1 = self.scores[0]
+        p2 = self.scores[1]
+        self.epsilon = 0.9 - 0.02 * ((p1 + p2) * 2 - (p2 - p1))
+        move = 0
+        if random.random() < self.epsilon:
+            move = int(random.random() * 4)
+            print(f"explore: {self.epsilon}")
+        else:
+            move = self.trainer.predict(self.state)
+            print(f"exploit: {self.epsilon}")
+        return move
+        # return int(random.random() * 4)
 
     def append_actions(self, move: Move) -> None:
         value = ACTIONS_MAX - len(self.curr_actions)
