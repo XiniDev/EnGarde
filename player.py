@@ -27,7 +27,7 @@ class Player():
         self.is_user = is_user
         self.mat_pos = -1 if self.is_user else 1
 
-        self.width = 35 * IMG_SCALE
+        self.width = 45 * IMG_SCALE
         self.height = 30 * IMG_SCALE
         self.pos_x = self.set_pos_x()
         self.pos_y = U.Y_CENTER - U.SCALE - self.height
@@ -47,7 +47,7 @@ class Player():
 
         action_num = U.action_to_numeric(action)
 
-        frame_y = self.height * (action_num - 1) if action_num in [1, 5, 8, 9] else self.height * 4
+        frame_y = self.height * (action_num - 1) if action_num in [1, 3, 4, 5, 8, 9] else self.height * 4
 
         # mini movements
         # without changing actual pos_x, use temp to display short burst of movement
