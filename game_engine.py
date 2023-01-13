@@ -49,8 +49,8 @@ class Game_Engine():
         self.display_turn(win)
         self.display_actions(win)
         self.resolve_turn()
-        self.player[0].update(win, 0, self.frames, self.action_check[0], self.action_check[1])
-        self.player[1].update(win, 1, self.frames, self.action_check[2], self.action_check[3])
+        self.player[0].update(self.running_turn, win, 0, self.frames, self.action_check[0], self.action_check[1])
+        self.player[1].update(self.running_turn, win, 1, self.frames, self.action_check[2], self.action_check[3])
     
     def reset(self) -> None:
         self.score = [0, 0]

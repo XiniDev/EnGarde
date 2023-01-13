@@ -32,10 +32,10 @@ class Player():
         self.pos_x = self.set_pos_x()
         self.pos_y = U.Y_CENTER - U.SCALE - self.height
 
-    def update(self, win: pygame.Surface, player: int, frames: int, action: Action, states: dict[str, int]) -> None:
-        self.render_player(win, player, frames, action, states)
+    def update(self, is_running_turn: bool, win: pygame.Surface, player: int, frames: int, action: Action, states: dict[str, int]) -> None:
+        self.render_player(is_running_turn, win, player, frames, action, states)
     
-    def render_player(self, win: pygame.Surface, player: int, frames: int, action: Action, states: dict[str, int]) -> None:
+    def render_player(self, is_running_turn: bool, win: pygame.Surface, player: int, frames: int, action: Action, states: dict[str, int]) -> None:
         # pygame.draw.rect(win, (0, 255 if self.is_user else 0, 0 if self.is_user else 255), (self.pos_x, self.pos_y, self.width, self.height))
         
         frame_x = 0
@@ -47,7 +47,7 @@ class Player():
 
         action_num = U.action_to_numeric(action)
 
-        frame_y = self.height * (action_num - 1) if action_num in [1, 3, 4, 5, 8, 9] else self.height * 4
+        frame_y = self.height * (action_num - 1) if action_num != 7 else self.height * 4
 
         # mini movements
         # without changing actual pos_x, use temp to display short burst of movement
@@ -55,8 +55,13 @@ class Player():
         if isinstance(action, Hit):
             if frames != -1:
                 movement = frames if frames < U.ANIMATION_FRAMES / 2 else U.ANIMATION_FRAMES - frames
-                temp_pos_x += (player - 0.5) * -1 * movement * IMG_SCALE
-        win.blit(player_imgs[player], (temp_pos_x, self.pos_y), ((frame_x, frame_y, self.width, self.height)))
+                temp_pos_x += (player - 0.5) * -5 * movement * IMG_SCALE
+        
+        if is_running_turn:
+            win.blit(player_imgs[player], (temp_pos_x, self.pos_y), ((frame_x, frame_y, self.width, self.height)))
+        else:
+            win.blit(player_imgs[player], (temp_pos_x, self.pos_y), ((frame_x, self.height * 4, self.width, self.height)))
+
 
     def set_pos_x(self) -> int:
         return self.mat_pos * (MAT_LENGTH + MAT_SPACING) + U.X_CENTER - self.width / 2
