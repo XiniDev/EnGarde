@@ -16,7 +16,7 @@ ACTIONS_MAX = 6
 
 class AI_Engine():
     def __init__(self) -> None:
-        self.card_engine = Card_Engine(no_shuffle=True)
+        self.card_engine = Card_Engine(no_shuffle=False)
 
         self.is_ai_done = False
         

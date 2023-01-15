@@ -111,7 +111,7 @@ def main():
     U.load_ALL_MOVES()
 
     game_engine = Game_Engine()
-    card_engine_display = Card_Engine_Display(no_shuffle=True)
+    card_engine_display = Card_Engine_Display(no_shuffle=False)
     stage = Stage(U.PISTE_LENGTH)
 
     # gui stuff

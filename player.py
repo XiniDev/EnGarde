@@ -8,7 +8,7 @@ import math
 
 # load animation images
 
-IMG_SCALE = U.SCALE / 4
+IMG_SCALE = U.SCALE / 4 * 1.5
 
 PLAYER_IMG_WIDTH = 640 * IMG_SCALE
 PLAYER_IMG_HEIGHT = 360 * IMG_SCALE
@@ -47,20 +47,17 @@ class Player():
 
         action_num = U.action_to_numeric(action)
 
-        frame_y = self.height * (action_num - 1) if action_num != 7 else self.height * 4
+        frame_y = self.height * (action_num - 1) if action_num != 7 and is_running_turn else self.height * 4
 
         # mini movements
         # without changing actual pos_x, use temp to display short burst of movement
         temp_pos_x = self.pos_x
-        if isinstance(action, Hit):
+        if isinstance(action, Hit) or isinstance(action, Smash):
             if frames != -1:
                 movement = frames if frames < U.ANIMATION_FRAMES / 2 else U.ANIMATION_FRAMES - frames
                 temp_pos_x += (player - 0.5) * -5 * movement * IMG_SCALE
         
-        if is_running_turn:
-            win.blit(player_imgs[player], (temp_pos_x, self.pos_y), ((frame_x, frame_y, self.width, self.height)))
-        else:
-            win.blit(player_imgs[player], (temp_pos_x, self.pos_y), ((frame_x, self.height * 4, self.width, self.height)))
+        win.blit(player_imgs[player], (temp_pos_x, self.pos_y), ((frame_x, frame_y, self.width, self.height)))
 
 
     def set_pos_x(self) -> int:

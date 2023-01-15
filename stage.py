@@ -2,8 +2,8 @@ import pygame
 
 import utils as U
 
-LENGTH = 10 * U.SCALE            # temp length until i make mat sprite :)
-SPACING = 5 * U.SCALE
+LENGTH = 12 * U.SCALE            # temp length until i make mat sprite :)
+SPACING = 6 * U.SCALE
 
 # mat class (piste is made out of multiple mats)
 
