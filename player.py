@@ -47,7 +47,7 @@ class Player():
 
         action_num = U.action_to_numeric(action)
 
-        frame_y = self.height * (action_num - 1) if action_num != 7 and is_running_turn else self.height * 4
+        frame_y = self.height * (action_num - 1) if is_running_turn else self.height * 4
 
         # mini movements
         # without changing actual pos_x, use temp to display short burst of movement
