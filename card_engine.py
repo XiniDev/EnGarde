@@ -112,12 +112,12 @@ class Card_Engine_Display(Card_Engine):
         self.draw(win)
     
     def draw(self, win: pygame.Surface) -> None:
-        size = (200, 100)
+        size = (90 * U.IMG_SCALE, 60 * U.IMG_SCALE)
         card_button = pygame.Surface(size)
         card_button.fill((128, 128, 128))
 
         # setting x values for drawing the cards in this order : 3, 1, 2, 4, then sorting it        
-        x_value = sorted([U.X_CENTER - size[0] - 50 - (((i + 1) // 2) * 300 * (-1 if i % 2 == 1 else 1)) for i in range(self.HAND_MAX)])
+        x_value = sorted([U.X_CENTER - size[0] - 5 * U.IMG_SCALE - (((i + 1) // 2) * 100 * U.IMG_SCALE * (-1 if i % 2 == 1 else 1)) for i in range(self.HAND_MAX)])
         
         for i in range(self.HAND_MAX):
             self.cards[i] = win.blit(card_button, (x_value[i], 500))

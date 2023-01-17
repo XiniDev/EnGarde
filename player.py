@@ -8,10 +8,8 @@ import math
 
 # load animation images
 
-IMG_SCALE = U.SCALE / 4 * 1.5
-
-PLAYER_IMG_WIDTH = 640 * IMG_SCALE
-PLAYER_IMG_HEIGHT = 360 * IMG_SCALE
+PLAYER_IMG_WIDTH = 640 * U.IMG_SCALE
+PLAYER_IMG_HEIGHT = 360 * U.IMG_SCALE
 
 SPRITE_FRAMES = 4
 
@@ -27,10 +25,10 @@ class Player():
         self.is_user = is_user
         self.mat_pos = -1 if self.is_user else 1
 
-        self.width = 45 * IMG_SCALE
-        self.height = 30 * IMG_SCALE
+        self.width = 45 * U.IMG_SCALE
+        self.height = 30 * U.IMG_SCALE
         self.pos_x = self.set_pos_x()
-        self.pos_y = U.Y_CENTER - U.SCALE - self.height
+        self.pos_y = U.Y_CENTER - U.IMG_SCALE - self.height
 
     def update(self, is_running_turn: bool, win: pygame.Surface, player: int, frames: int, action: Action, states: dict[str, int]) -> None:
         self.render_player(is_running_turn, win, player, frames, action, states)
@@ -55,7 +53,7 @@ class Player():
         if isinstance(action, Hit) or isinstance(action, Smash):
             if frames != -1:
                 movement = frames if frames < U.ANIMATION_FRAMES / 2 else U.ANIMATION_FRAMES - frames
-                temp_pos_x += (player - 0.5) * -5 * movement * IMG_SCALE
+                temp_pos_x += (player - 0.5) * -5 * movement * U.IMG_SCALE
         
         win.blit(player_imgs[player], (temp_pos_x, self.pos_y), ((frame_x, frame_y, self.width, self.height)))
 
