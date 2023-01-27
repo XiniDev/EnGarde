@@ -14,11 +14,12 @@ from ai_engine import *
 
 class Game_Engine():
     def __init__(self) -> None:
-        self.is_sp = None                      # determines if the game is singleplayer or multiplayer
+        self.gamemode = 0                      # multiplayer: 0 | singleplayer: 1 | debug: 2 | training >= 3
 
-        self.player = [Player(True), Player(False)]
+        self.playerModels = [Player(True), Player(False)]
 
-        self.ai = None
+        # self.ai = None
+        self.players = [None, None]
 
         self.score = [0, 0]
 
@@ -39,7 +40,7 @@ class Game_Engine():
         self.opp_actions_past = []
 
         # states variables
-        self.distance = self.player[1].mat_pos - self.player[0].mat_pos - 1
+        self.distance = self.playerModels[1].mat_pos - self.playerModels[0].mat_pos - 1
 
         # for animation
         self.action_check = (Blank(), al.states[0], Blank(), al.states[1])
@@ -49,22 +50,27 @@ class Game_Engine():
         self.display_turn(win)
         self.display_actions(win)
         self.resolve_turn()
-        self.player[0].update(self.running_turn, win, 0, self.frames, self.action_check[0], self.action_check[1])
-        self.player[1].update(self.running_turn, win, 1, self.frames, self.action_check[2], self.action_check[3])
+        self.playerModels[0].update(self.running_turn, win, 0, self.frames, self.action_check[0], self.action_check[1])
+        self.playerModels[1].update(self.running_turn, win, 1, self.frames, self.action_check[2], self.action_check[3])
     
     def reset(self) -> None:
         self.score = [0, 0]
         self.reset_turn()
-        if self.is_sp:
-            self.ai.reset()
+        if self.gamemode > 0:
+            if self.gamemode >= 3:
+                self.players[0].reset()
+            self.players[1].reset()
     
     def set_ai(self) -> None:
-        self.ai = AI_Engine() if self.is_sp else None
-        if self.is_sp:
-            self.ai.start()
+        if self.gamemode > 0:
+            if self.gamemode >= 3:
+                self.players[0] = AI_Engine()
+                self.players[0].start()
+            self.players[1] = AI_Engine()
+            self.players[1].start()
     
-    def set_sp(self, is_sp: bool) -> None:
-        self.is_sp = is_sp
+    def set_gamemode(self, gamemode: int) -> None:
+        self.gamemode = gamemode
         self.set_ai()
     
     def display_score(self, win: pygame.Surface) -> None:
@@ -109,17 +115,27 @@ class Game_Engine():
             else:
                 self.frames += 1
                 self.resolve_action()
-        elif self.is_user_done:
-            if self.is_sp:
-                # run AI
-                self.opp_actions = self.ai.decision([self.player[0].mat_pos, self.player[1].mat_pos], self.past_actions, self.score, self.turn)
-                # self.opp_actions = self.ai.debug_decision()
-                self.running_turn = True
-            else:
-                # recieve connection signal (if opp_actions are appended, then running_turn = True)
-                # send curr actions to run on other screen, send past actions to display what they have done previously
-                if not self.opp_actions == []:
+        else:
+            match self.gamemode:
+                case 0:
+                    # recieve connection signal (if opp_actions are appended, then running_turn = True)
+                    # send curr actions to run on other screen, send past actions to display what they have done previously
+                    if self.is_user_done:
+                        if not self.opp_actions == []:
+                            self.running_turn = True
+                case 1:
+                    if self.is_user_done:
+                        # run AI
+                        self.opp_actions = self.players[1].decision([self.playerModels[0].mat_pos, self.playerModels[1].mat_pos], self.past_actions, self.score, self.turn)
+                        # self.opp_actions = self.players[1].debug_decision()
+                        self.running_turn = True
+                case 2:
+                    self.curr_actions = self.players[0].decision([self.playerModels[1].mat_pos, self.playerModels[0].mat_pos], self.opp_actions_past, self.score, self.turn)
+                    self.opp_actions = self.players[1].decision([self.playerModels[0].mat_pos, self.playerModels[1].mat_pos], self.past_actions, self.score, self.turn)
+
                     self.running_turn = True
+                case 3:
+                    pass
 
     def next_action(self) -> None:
         print(f"Turn: {self.turn} | Action: {self.action}")
@@ -131,12 +147,14 @@ class Game_Engine():
     
     def next_turn(self) -> None:
         self.turn += 1
-        if self.is_sp:
-            self.set_ai_states(0)
+        if self.gamemode > 0:
+            if self.gamemode >= 3:
+                self.set_ai_states(0, 0)
+            self.set_ai_states(1, 0)
         self.reset_actions()
 
     def update_distance(self) -> None:
-        self.distance = self.player[1].mat_pos - self.player[0].mat_pos - 1
+        self.distance = self.playerModels[1].mat_pos - self.playerModels[0].mat_pos - 1
     
     def reset_actions(self) -> None:
         self.is_user_done = False
@@ -151,8 +169,8 @@ class Game_Engine():
         a_1 = self.curr_actions[self.action - 1]
         a_2 = self.opp_actions[self.action - 1]
         al.compute(a_1, a_2, self.distance)
-        states_1 = {**al.states[0], **{'mat_pos': self.player[0].mat_pos}}
-        states_2 = {**al.states[1], **{'mat_pos': self.player[1].mat_pos}}
+        states_1 = {**al.states[0], **{'mat_pos': self.playerModels[0].mat_pos}}
+        states_2 = {**al.states[1], **{'mat_pos': self.playerModels[1].mat_pos}}
         print(f"User: {a_1} ; {states_1} | Opp: {a_2} ; {states_2} | Distance: {self.distance}")
         self.action_check = (a_1, al.states[0], a_2, al.states[1])
 
@@ -164,18 +182,18 @@ class Game_Engine():
                 score = self.out_detection()
 
             # ai stuff
-            # self.ai.update_rewards(score[0], score[1], self.action)
-            # print(self.ai.rewards)
+            # self.players[1].update_rewards(score[0], score[1], self.action)
+            # print(self.players[1].rewards)
 
             if 1 in score:
                 self.scored(score[0], score[1])
     
     def resolve_movement(self) -> None:
         for i in range(2):
-            self.player[i].pos_update(al.states[i]['move'], self.frames)
+            self.playerModels[i].pos_update(al.states[i]['move'], self.frames)
             if al.states[i]['push'] == 1:
                 if self.distance == 0:
-                    self.player[i * -1 + 1].pos_update(-1, self.frames)
+                    self.playerModels[i * -1 + 1].pos_update(-1, self.frames)
 
     def resolve_score(self) -> None:  # thnk of something better HERE
         return [al.states[0]['score'], al.states[1]['score']]
@@ -184,7 +202,7 @@ class Game_Engine():
         piste_length = U.PISTE_LENGTH
         score = [0, 0]
         for i in range(2):
-            if self.player[i].mat_pos > (piste_length - 1) / 2 or self.player[i].mat_pos < -1 * (piste_length - 1) / 2:
+            if self.playerModels[i].mat_pos > (piste_length - 1) / 2 or self.playerModels[i].mat_pos < -1 * (piste_length - 1) / 2:
                 score[i * -1 + 1] = 1
         return score
 
@@ -195,28 +213,33 @@ class Game_Engine():
         self.reset_turn()
     
     def reset_ai_on_score(self, p1: int, p2: int) -> None:
-        if self.is_sp:
+        if self.gamemode > 0:
             # have to do something with tie, because tie = 0, but cannot = 0
             buffer = 1
-            reward_score = 2 * (p2 - p1) + buffer
+            r0 = 2 * (p1 - p2) + buffer
+            r1 = 2 * (p2 - p1) + buffer
             # now rewards are:
             # -1 = lose
             # 1 = tie
             # 3 = win
-            self.set_ai_states(reward_score)
+            if self.gamemode >= 3:
+                self.set_ai_states(0, r0)
+            self.set_ai_states(0, r1)
     
-    def set_ai_states(self, reward_score: int) -> None:
+    def set_ai_states(self, index, reward_score: int) -> None:
         # not sure bout this yet, but potentially record position back at -1 and 1
         # this is because one side scored, so that means the ai should record positions back to default, as the game resets
         # instead of recording position ended when scoring, not sure bout this yet tho
-        # original self.player[0].mat_pos, self.player[1].mat_pos
-        self.ai.set_memory(True, reward_score, [self.player[0].mat_pos, self.player[1].mat_pos], self.curr_actions, self.score, self.turn)
-        # print(f"opp_past_actions: {self.ai.opp_past_actions}")
-        # print(f"opp_past_moves: {self.ai.opp_past_moves}")
+        # original self.playerModels[0].mat_pos, self.playerModels[1].mat_pos
+        self.players[index].set_memory(True, reward_score, [self.playerModels[0].mat_pos, self.playerModels[1].mat_pos], self.curr_actions, self.score, self.turn)
+        # print(f"opp_past_actions: {self.players[index].opp_past_actions}")
+        # print(f"opp_past_moves: {self.players[index].opp_past_moves}")
     
     def reset_ai_turn(self) -> None:
-        if self.is_sp:
-            self.ai.reset_turn()
+        if self.gamemode > 0:
+            if self.gamemode >= 3:
+                self.players[0].reset_turn()
+            self.players[1].reset_turn()
 
     def reset_turn(self) -> None:
         self.turn = 1
@@ -224,8 +247,8 @@ class Game_Engine():
         self.frames = -1
         self.available_slots = U.ACTIONS_MAX
         self.reset_ai_turn()
-        self.player[0].reset_pos()
-        self.player[1].reset_pos()
+        self.playerModels[0].reset_pos()
+        self.playerModels[1].reset_pos()
         self.futr_actions = []
         self.curr_actions = []
         self.opp_actions = []

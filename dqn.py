@@ -22,6 +22,9 @@ class Network(nn.Module):
 
         return x
 
+    def save(self) -> None:
+        torch.save(self.state_dict(), './model/model.pth')
+
 class Trainer():
     def __init__(self, model: Network, learning_rate: float, gamma: float) -> None:
         self.model = model
@@ -46,6 +49,8 @@ class Trainer():
         loss.backward()
         print(loss.item())
         self.optimizer.step()
+
+        # self.model.save()
     
     def predict(self, state: np.ndarray) -> int:
         state = torch.tensor(state, dtype=torch.float)
