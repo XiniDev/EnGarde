@@ -105,7 +105,12 @@ class Game_Engine():
     def resolve_turn(self) -> None:
         self.update_distance()
         # print(network.client)
-        if self.running_turn:
+        if self.running_turn and self.gamemode == 3:
+            self.frames = U.ANIMATION_FRAMES
+            self.check_action()
+            self.resolve_action()
+            self.next_action()
+        elif self.running_turn:
             if self.frames == U.ANIMATION_FRAMES:
                 self.frames = -1
                 self.next_action()
@@ -135,7 +140,10 @@ class Game_Engine():
 
                     self.running_turn = True
                 case 3:
-                    pass
+                    self.curr_actions = self.players[0].decision([self.playerModels[1].mat_pos, self.playerModels[0].mat_pos], self.opp_actions_past, self.score, self.turn)
+                    self.opp_actions = self.players[1].decision([self.playerModels[0].mat_pos, self.playerModels[1].mat_pos], self.past_actions, self.score, self.turn)
+
+                    self.running_turn = True
 
     def next_action(self) -> None:
         print(f"Turn: {self.turn} | Action: {self.action}")

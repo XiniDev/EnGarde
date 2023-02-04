@@ -11,7 +11,7 @@ from game_engine import *
 
 import pygame
 
-pygame.init()
+# pygame.init()
 
 # initialisation
 
