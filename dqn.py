@@ -14,11 +14,13 @@ class Network(nn.Module):
         self.linear1 = nn.Linear(input_size, hidden_size)
         self.linear2 = nn.Linear(hidden_size, hidden_size)
         self.linear3 = nn.Linear(hidden_size, output_size)
+        # self.linear2 = nn.Linear(hidden_size, output_size)
 
     def forward(self, x: Tensor) -> Tensor:
         x = F.relu(self.linear1(x))
         x = F.relu(self.linear2(x))
         x = self.linear3(x)
+        # x = self.linear2(x)
 
         return x
 
@@ -40,6 +42,7 @@ class Trainer():
         next_state = torch.tensor(next_state, dtype=torch.float)
 
         Q_value = self.model(state)
+        # print(self.model(next_state))
         Q_new_value = reward + self.gamma * torch.max(self.model(next_state))
         target = Q_value.clone()
         target[torch.argmax(action).item()] = Q_new_value
@@ -52,10 +55,18 @@ class Trainer():
 
         # self.model.save()
     
-    def predict(self, state: np.ndarray) -> int:
+    def predict(self, state: np.ndarray, hand: list[int]) -> int:
         state = torch.tensor(state, dtype=torch.float)
         Q_value = self.model(state)
-        return torch.argmax(Q_value).item()
+        # return torch.argmax(Q_value).item()
+        temp = Q_value.tolist()
+        res = np.array([x for i,x in enumerate(temp) if (i+1) in hand])
+        # print(res, np.argmax(res))
+        return np.argmax(res)
 
+    # def predict(self, state: np.ndarray) -> int:
+    #     state = torch.tensor(state, dtype=torch.float)
+    #     Q_value = self.model(state)
+    #     return torch.argmax(Q_value).item()
 
 # STILL LEARNING :(

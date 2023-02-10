@@ -137,9 +137,9 @@ class DQNAgent(Agent):
 
         self.reset_memory()
 
-        self.model = dqn.Network(24, 256, 4)
+        self.model = dqn.Network(90, 512, 8)
         self.trainer = dqn.Trainer(self.model, 0.001, 0.9)
-        self.epsilon = 1.0
+        self.epsilon = 0.9
 
     def full_reset(self) -> None:
         self.reset_cards()
@@ -191,23 +191,44 @@ class DQNAgent(Agent):
         self.trainer.train(state, action, reward, new_state)
 
     def reset_memory(self) -> None:
+        hand = sorted([h-1 for h in self.hand])
+        hand = self.convert_binary(hand, 3) # 12 each
         mat_pos = [-1, 1]
-        opp_actions = curr_actions = futr_actions = [0, 0, 0, 0, 0, 0]
-        self.state = [*self.hand, *mat_pos, *opp_actions, *curr_actions, *futr_actions]
+        bin_mat_pos = self.convert_binary([p+4 for p in mat_pos], 3) # 6 instead of 2
+        opp_actions = curr_actions = futr_actions = [0, 0, 0, 0] * 6 # 24 each! 24 * 3 = 72
+        self.state = [*hand, *bin_mat_pos, *opp_actions, *curr_actions, *futr_actions]
         self.state = np.array(self.state, dtype=int)
 
+    def convert_binary(self, numbers: list[int], size: int) -> None:
+        res = []
+        for n in numbers:
+            b = []
+            binary = n
+            for i in range(size):
+                b.append(binary & 1)
+                binary = binary >> 1
+            res.extend(b[::-1])
+        return res
+
     def get_state(self, mat_pos: list[int], opp_past_actions: list[int]) -> list[int]:
+        hand = sorted([h-1 for h in self.hand])
+        hand = self.convert_binary(hand, 3)
+        bin_mat_pos = self.convert_binary([p+4 for p in mat_pos], 3)
+        bin_o_actions = self.convert_binary([a-1 for a in opp_past_actions], 4)
+
         c_actions = [0] * 6
         if len(self.c_actions) != 6:
             for i, a in enumerate(self.c_actions):
                 c_actions[i] = a
+        bin_c_actions = self.convert_binary([a-1 for a in c_actions], 4)
 
         f_actions = [0] * 6
         if len(self.f_actions) != 6:
             for i, a in enumerate(self.f_actions):
                 f_actions[i] = a
+        bin_f_actions = self.convert_binary([a-1 for a in f_actions], 4)
 
-        return [*self.hand, *mat_pos, *opp_past_actions, *c_actions, *f_actions]
+        return [*hand, *bin_mat_pos, *bin_o_actions, *bin_c_actions, *bin_f_actions]
 
     def get_reward(self, reward_score: int) -> int:
         reward = reward_score
@@ -220,7 +241,7 @@ class DQNAgent(Agent):
             if (verbose):
                 print(f"explore: {self.epsilon}")
         else:
-            move = self.trainer.predict(self.state)
+            move = self.trainer.predict(self.state, self.hand)
             if (verbose):
                 print(f"exploit: {self.epsilon}")
         return move
@@ -237,21 +258,24 @@ class SimpleGE():
 
         self.states = [[0,0], [0,0], [0,0], [0,0]]
 
-    def game_loop(self) -> None:
+    def game_loop(self) -> tuple:
         scored = self.turn_loop()
         winner = 0
+        curr_score = self.score
         if scored:
             self.ai_1.score_reset()
             self.ai_2.score_reset()
             if (verbose):
                 print(f"Score: [{self.score[0]} : {self.score[1]}]")
         if 15 in self.score:
-            if self.score[0] == 15:
+            if self.score[0] == 15 and self.score[1] == 15:
+                winner = 3
+            elif self.score[0] == 15:
                 winner = 1
-            if self.score[1] == 15:
+            elif self.score[1] == 15:
                 winner = 2
             self.reset()
-        return winner
+        return winner, curr_score
     
     def reset(self) -> None:
         self.ai_1.full_reset()
@@ -276,10 +300,10 @@ class SimpleGE():
                 self.score[0] += score[0]
                 self.score[1] += score[1]
                 buffer = 1
-                r0 = 2 * (score[0] - score[1]) + buffer
-                r1 = 2 * (score[1] - score[0]) + buffer
-                self.set_ai_states(0, r0)
-                self.set_ai_states(0, r1)
+                r1 = 10 * (score[0] - score[1]) + buffer
+                r2 = 10 * (score[1] - score[0]) + buffer
+                self.set_ai_states(1, r1)
+                self.set_ai_states(2, r2)
                 return True
         self.set_ai_states(1, 0)
         self.set_ai_states(2, 0)
@@ -353,13 +377,16 @@ wins = [0, 0]
 stop = False
 
 while not stop:
-    winner = ge.game_loop()
+    winner, curr_score = ge.game_loop()
     if winner != 0:
-        ge.ai_1.epsilon -= 1 / 100000
-        wins[winner - 1] += 1
+        ge.ai_1.epsilon *= 0.9999
+        if winner == 3:
+            wins[0] += 1
+            wins[1] += 1
+        else:
+            wins[winner - 1] += 1
         # if (verbose):
-        print(f"Winner : AI {winner}")
-        print(f"Wins: {wins}")
-    if 100000 in wins:
+        print(f"Winner : AI {winner} | Score : {curr_score} | Wins: {wins} | Eps: {ge.ai_1.epsilon}")
+    if 20000 in wins:
         print(f"Total Wins: {wins}")
         stop = True

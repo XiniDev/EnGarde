@@ -183,7 +183,7 @@ class AI_Engine():
             move = int(random.random() * 4)
             print(f"explore: {self.epsilon}")
         else:
-            move = self.trainer.predict(self.state)
+            move = self.trainer.predict(self.state, [move.id for move in self.card_engine.hand])
             print(f"exploit: {self.epsilon}")
         return move
         # return int(random.random() * 4)

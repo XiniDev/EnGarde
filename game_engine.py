@@ -227,7 +227,7 @@ class Game_Engine():
             # 3 = win
             if self.gamemode >= 3:
                 self.set_ai_states(0, r0)
-            self.set_ai_states(0, r1)
+            self.set_ai_states(1, r1)
     
     def set_ai_states(self, index: int, reward_score: int) -> None:
         # not sure bout this yet, but potentially record position back at -1 and 1
