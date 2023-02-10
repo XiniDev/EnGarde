@@ -50,10 +50,11 @@ class AI_Engine():
         # deep q network
         self.model = dqn.Network(24, 256, 4)
         self.trainer = dqn.Trainer(self.model, 0.001, 0.9)
+        self.epsilon = 1.0
 
     def reset(self) -> None:
-        self.reset_memory()
         self.card_engine.reset()
+        self.reset_memory()
 
     def start(self) -> None:
         self.card_engine.start(U.ALL_MOVES)

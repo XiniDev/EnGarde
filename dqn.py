@@ -47,7 +47,7 @@ class Trainer():
         self.optimizer.zero_grad()
         loss = self.criterion(target, Q_value)
         loss.backward()
-        print(loss.item())
+        # print(loss.item())
         self.optimizer.step()
 
         # self.model.save()

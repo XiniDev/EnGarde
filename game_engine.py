@@ -105,12 +105,7 @@ class Game_Engine():
     def resolve_turn(self) -> None:
         self.update_distance()
         # print(network.client)
-        if self.running_turn and self.gamemode == 3:
-            self.frames = U.ANIMATION_FRAMES
-            self.check_action()
-            self.resolve_action()
-            self.next_action()
-        elif self.running_turn:
+        if self.running_turn:
             if self.frames == U.ANIMATION_FRAMES:
                 self.frames = -1
                 self.next_action()
@@ -135,12 +130,12 @@ class Game_Engine():
                         # self.opp_actions = self.players[1].debug_decision()
                         self.running_turn = True
                 case 2:
-                    self.curr_actions = self.players[0].decision([self.playerModels[1].mat_pos, self.playerModels[0].mat_pos], self.opp_actions_past, self.score, self.turn)
+                    self.curr_actions = self.players[0].decision([self.playerModels[0].mat_pos, self.playerModels[1].mat_pos], self.opp_actions_past, self.score, self.turn)
                     self.opp_actions = self.players[1].decision([self.playerModels[0].mat_pos, self.playerModels[1].mat_pos], self.past_actions, self.score, self.turn)
 
                     self.running_turn = True
                 case 3:
-                    self.curr_actions = self.players[0].decision([self.playerModels[1].mat_pos, self.playerModels[0].mat_pos], self.opp_actions_past, self.score, self.turn)
+                    self.curr_actions = self.players[0].decision([self.playerModels[0].mat_pos, self.playerModels[1].mat_pos], self.opp_actions_past, self.score, self.turn)
                     self.opp_actions = self.players[1].decision([self.playerModels[0].mat_pos, self.playerModels[1].mat_pos], self.past_actions, self.score, self.turn)
 
                     self.running_turn = True
@@ -234,7 +229,7 @@ class Game_Engine():
                 self.set_ai_states(0, r0)
             self.set_ai_states(0, r1)
     
-    def set_ai_states(self, index, reward_score: int) -> None:
+    def set_ai_states(self, index: int, reward_score: int) -> None:
         # not sure bout this yet, but potentially record position back at -1 and 1
         # this is because one side scored, so that means the ai should record positions back to default, as the game resets
         # instead of recording position ended when scoring, not sure bout this yet tho
