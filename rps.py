@@ -79,7 +79,11 @@ class GE():
         self.curr2 = 0
 
     def game_loop(self) -> int:
-        reward_score = self.previous_winner * 10 if self.previous_winner != 2 else -10
+        reward_score = 0
+        if self.previous_winner == 1:
+            reward_score = 10
+        elif self.previous_winner == 2:
+            reward_score = -5
         self.ai_1.set_memory(reward_score, self.curr2)
         self.curr1 = self.ai_1.decision()
         self.curr2 = self.ai_2.decision()
@@ -109,6 +113,8 @@ while not stop:
         ge.ai_1.epsilon *= 0.9999
         wins[winner - 1] += 1
         print(f"Winner : AI {winner} | Wins: {wins} | Eps: {ge.ai_1.epsilon}")
-    if 20000 in wins:
+    if 10000 in wins:
+        ge.ai_1.epsilon = 0
+    elif 20000 in wins:
         print(f"Total Wins: {wins}")
         stop = True

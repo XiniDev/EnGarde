@@ -36,8 +36,9 @@ class Trainer():
         self.criterion = nn.MSELoss()
 
     def train(self, state: np.ndarray, action: int, reward: int, next_state: np.ndarray) -> None:
+        # print(state)
         state = torch.tensor(state, dtype=torch.float)
-        action = torch.tensor(action, dtype=torch.int)
+        action = torch.tensor([action], dtype=torch.int)
         reward = torch.tensor(reward, dtype=torch.float)
         next_state = torch.tensor(next_state, dtype=torch.float)
 
@@ -45,7 +46,10 @@ class Trainer():
         # print(self.model(next_state))
         Q_new_value = reward + self.gamma * torch.max(self.model(next_state))
         target = Q_value.clone()
-        target[torch.argmax(action).item()] = Q_new_value
+        target[action.item()] = Q_new_value
+
+        # print(Q_value, Q_new_value)
+        # print(action)
 
         self.optimizer.zero_grad()
         loss = self.criterion(target, Q_value)
@@ -67,6 +71,7 @@ class Trainer():
     # def predict(self, state: np.ndarray) -> int:
     #     state = torch.tensor(state, dtype=torch.float)
     #     Q_value = self.model(state)
+    #     # print(Q_value)
     #     return torch.argmax(Q_value).item()
 
 # STILL LEARNING :(
