@@ -38,7 +38,10 @@ end_message_timer = 0
 # gui functions
 
 def display_victory(winner: int):
-    win.blit(pygame.font.SysFont('Comic Sans MS', 60).render("Player " + str(winner) + " wins!", False, (255, 255, 255)), (U.X_CENTER, U.Y_CENTER))
+    if winner == 3:
+        win.blit(pygame.font.SysFont('Comic Sans MS', 60).render("Both Player wins!", False, (255, 255, 255)), (U.X_CENTER, U.Y_CENTER))
+    else:
+        win.blit(pygame.font.SysFont('Comic Sans MS', 60).render("Player " + str(winner) + " wins!", False, (255, 255, 255)), (U.X_CENTER, U.Y_CENTER))
 
 curr_gui = 'menu'
 gamemode = -1

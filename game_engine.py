@@ -218,9 +218,9 @@ class Game_Engine():
     def reset_ai_on_score(self, p1: int, p2: int) -> None:
         if self.gamemode > 0:
             # have to do something with tie, because tie = 0, but cannot = 0
-            buffer = 1
-            r0 = 2 * (p1 - p2) + buffer
-            r1 = 2 * (p2 - p1) + buffer
+            buffer = 0
+            r0 = 10 * (p1 * 2 - p2) + buffer
+            r1 = 10 * (p2 * 2 - p1) + buffer
             # now rewards are:
             # -1 = lose
             # 1 = tie
@@ -234,7 +234,7 @@ class Game_Engine():
         # this is because one side scored, so that means the ai should record positions back to default, as the game resets
         # instead of recording position ended when scoring, not sure bout this yet tho
         # original self.playerModels[0].mat_pos, self.playerModels[1].mat_pos
-        self.players[index].set_memory(True, reward_score, [self.playerModels[0].mat_pos, self.playerModels[1].mat_pos], self.curr_actions, self.score, self.turn)
+        self.players[index].set_memory(reward_score, [self.playerModels[0].mat_pos, self.playerModels[1].mat_pos], self.curr_actions, self.score, self.turn)
         # print(f"opp_past_actions: {self.players[index].opp_past_actions}")
         # print(f"opp_past_moves: {self.players[index].opp_past_moves}")
     
@@ -297,6 +297,9 @@ class Game_Engine():
     # victory checking in main
     
     def check_victory(self) -> int:
+        if self.score[0] == self.score[1] and self.score[0] == 15:
+            print(f"Both Player wins! Resetting game...")
+            return 3
         for i in range(2):
             if self.score[i] >= 15:
                 print(f"Player {i + 1} wins! Resetting game...")

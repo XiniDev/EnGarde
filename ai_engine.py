@@ -35,10 +35,10 @@ class AI_Engine():
 
         # memory
 
+        self.old_hand = None
+
         self.old_state = None
         self.state = None
-
-        self.total_moves = 0
 
         self.move_selected = -1
 
@@ -48,9 +48,8 @@ class AI_Engine():
         self.reward = 0
 
         # deep q network
-        self.model = dqn.Network(24, 256, 4)
-        self.trainer = dqn.Trainer(self.model, 0.001, 0.9)
-        self.epsilon = 1.0
+        self.model = dqn.LinearQNetwork(66, 256, 8)
+        self.trainer = dqn.Trainer(self.model, 0.001, 0.9, 0.0)
 
     def reset(self) -> None:
         self.card_engine.reset()
@@ -72,16 +71,28 @@ class AI_Engine():
     
     def reset_memory(self) -> None:
 
+        self.trainer.load("trained/fc_newer/checkpoint_epo50_eps010.pth")
+
         # pre-processing
         self.curr_deck = deque()
 
-        hand = [move.id for move in self.card_engine.hand]
+        hand = sorted([move.id - 1 for move in self.card_engine.hand])
+        bin_hand = U.convert_binary(hand, 3)
+
         mat_pos = [-1, 1]
-        opp_actions = curr_actions = futr_actions = [0, 0, 0, 0, 0, 0]
+        bin_mat_pos = U.convert_binary([p+4 for p in mat_pos], 3)
+
+        # opp_actions = curr_actions = futr_actions = [0, 0, 0, 0, 0, 0]
+        bin_o_actions = bin_c_actions = [0, 0, 0, 0] * 6
+
         self.scores = [0, 0]
         turn = 1
-        self.state = [*hand, *mat_pos, *opp_actions, *curr_actions, *futr_actions]
+
+        # self.state = [*hand, *mat_pos, *opp_actions, *curr_actions, *futr_actions]
+        self.state = [*bin_hand, *bin_mat_pos, *bin_o_actions, *bin_c_actions]
         self.state = np.array(self.state, dtype=int)
+
+        self.old_hand = hand
 
     # def update_rewards(self, opp: int, ai: int, action: int) -> None:
     #     # no one win = 0, opp win = -10, ai win = 10, tie = 10
@@ -98,7 +109,6 @@ class AI_Engine():
 
         # move selection (returns the id of the move)
         self.move_selected = self.move_selection()
-        self.total_moves += 1
         print(f"AI Done: {self.is_ai_done}")
         if self.is_ai_done:
             result = self.curr_actions
@@ -106,48 +116,63 @@ class AI_Engine():
             print(f"AI Curr: {result} | AI Fut: {self.curr_actions} | AI Fut2: {self.futr_actions}")
             return result
         else:
-            self.set_memory(False, 0, mat_pos, opp_past_actions, scores, turn)
+            self.set_memory(0, mat_pos, opp_past_actions, scores, turn)
             return self.decision(mat_pos, opp_past_actions, scores, turn)
 
-    def set_memory(self, is_turn_reset: bool, reward_score: int, mat_pos: list[int], opp_past_actions: list[Action], scores: list[int], turn: int) -> None:
+    def set_memory(self, reward_score: int, mat_pos: list[int], opp_past_actions: list[Action], scores: list[int], turn: int) -> None:
         opp_actions = opp_past_actions
         if len(opp_past_actions) == 0:
             opp_actions = [0] * U.ACTIONS_MAX
+
         self.old_state = self.state
-        self.state = self.get_state(is_turn_reset, mat_pos, opp_actions, scores, turn)
+        self.state = self.get_state(mat_pos, opp_actions, scores, turn)
         self.state = np.array(self.state, dtype=int)
 
         self.scores = scores
-
-        if is_turn_reset:
-            self.total_moves = 0
         
         self.reward = self.get_reward(reward_score)
 
         # print(f"agent move: {self.move_selected} | agent state: {self.state}")
 
         state = self.old_state
-        action = self.move_selected
+        action = self.move_selected - 1
         reward = self.reward
         new_state = self.state
 
-        self.trainer.train(state, action, reward, new_state)
+        self.trainer.train(state, action, reward, new_state, self.old_hand)
         # print(self.trainer.model)
+
+        self.old_hand = sorted([move.id - 1 for move in self.card_engine.hand])
         
 
-    def get_state(self, is_turn_reset: bool, mat_pos: list[int], opp_past_actions: list[Action], scores: list[int], turn: int) -> list[int]:
-        # convert to numeric so that the actions are stored much better in memory
+    def get_state(self, mat_pos: list[int], opp_past_actions: list[Action], scores: list[int], turn: int) -> list[int]:
+        # sorted hand so same hand of different order literally means the same thing to the agent, then convert to binary so its easily differentiable for the agent
+        hand = sorted([move.id - 1 for move in self.card_engine.hand])
+        bin_hand = U.convert_binary(hand, 3)
+
+        # convert mat positions to binary
+        bin_mat_pos = U.convert_binary([p+4 for p in mat_pos], 3)
+
+        # convert to numeric so that the actions are stored much better in memory, then convert them to binary
         opp_actions = self.actions_to_numeric(opp_past_actions)
-        hand = [move.id for move in self.card_engine.hand]
+        bin_o_actions = U.convert_binary(opp_actions, 4)
+
         # here, self.curr_actions = future actions, and self.past_actions = current actions, because this is checked after reset
+        # convert to numeric for memory reasons, then convert them to binary
         curr_actions = self.actions_to_numeric(self.past_actions)
-        futr_actions = self.actions_to_numeric(self.curr_actions)
-        # , *scores, turn, self.total_moves???
-        return [*hand, *mat_pos, *opp_actions, *curr_actions, *futr_actions]
+        bin_c_actions = U.convert_binary(curr_actions, 4)
+
+        # not sure if keeping futr actions
+        # futr_actions = self.actions_to_numeric(self.curr_actions)
+        # bin_f_actions = U.convert_binary(futr_actions, 4)
+
+        # , *futr_actions, *scores, turn, self.total_moves???
+        return [*bin_hand, *bin_mat_pos, *bin_o_actions, *bin_c_actions]
     
     def actions_to_numeric(self, actions: list[Action]) -> list[int]:
         actions_num = [0] * U.ACTIONS_MAX
-        
+
+        # ensures there are 6 actions
         for i, action in enumerate(actions):
             actions_num[i] = U.action_to_numeric(action)
         return actions_num
@@ -163,7 +188,7 @@ class AI_Engine():
         if self.available_slots <= 0:
             self.available_slots = ACTIONS_MAX + self.available_slots
             self.ai_done()
-            res = -1
+            res = 0
         else:
             move = self.card_engine.play_move(self.get_action())
             self.append_actions(move)
@@ -175,16 +200,12 @@ class AI_Engine():
         return res
     
     def get_action(self) -> int:
-        p1 = self.scores[0]
-        p2 = self.scores[1]
-        self.epsilon = 0.9 - 0.02 * ((p1 + p2) * 2 - (p2 - p1))
-        move = 0
-        if random.random() < self.epsilon:
-            move = int(random.random() * 4)
-            print(f"explore: {self.epsilon}")
-        else:
-            move = self.trainer.predict(self.state, [move.id for move in self.card_engine.hand])
-            print(f"exploit: {self.epsilon}")
+        # p1 = self.scores[0]
+        # p2 = self.scores[1]
+        # self.epsilon = 0.9 - 0.02 * ((p1 + p2) * 2 - (p2 - p1))
+
+        hand = [move.id for move in self.card_engine.hand]
+        move = self.trainer.predict(self.state, hand)
         return move
         # return int(random.random() * 4)
 

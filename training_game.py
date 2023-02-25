@@ -2,6 +2,8 @@ import random
 
 from collections import deque
 
+import copy
+
 import numpy as np
 import dqn as dqn
 
@@ -60,6 +62,7 @@ class Agent():
     def full_reset(self) -> None:
         self.reset_cards()
         self.score_reset()
+        self.reset_memory()
 
     def reset_cards(self) -> None:
         self.deck = deque([1,2,3,4,5,6,7,8])
@@ -67,6 +70,9 @@ class Agent():
 
         random.shuffle(self.deck)
         self.hand.extend([self.deck.popleft() for i in range(4)])
+    
+    def reset_memory(self) -> None:
+        pass
 
     def score_reset(self) -> None:
         self.mat_pos = int((self.id - 1.5) * 2)
@@ -82,7 +88,7 @@ class Agent():
         self.f_actions = []
 
     def decision(self, mat_pos: list[int], opp_past_actions: list[int]) -> list[int]:
-        self.move_selected = self.move_selection(int(random.random() * 4))
+        self.move_selected = self.move_selection(self.get_action())
         if self.done:
             result = self.c_actions
             self.reset_actions()
@@ -90,13 +96,14 @@ class Agent():
                 print(f"AI {self.id} | Pos: {self.mat_pos} | Curr: {result} | Futr: {self.c_actions}")
             return result
         else:
+            self.set_memory(0, mat_pos, opp_past_actions)
             return self.decision(mat_pos, opp_past_actions)
 
     def move_selection(self, choice: int) -> int:
         if self.slots <= 0:
             self.slots = 6 + self.slots
             self.done = True
-            res = -1
+            res = 0
         else:
             move_id = self.play_move(choice)
             move = ALL_MOVES_NUM[move_id]
@@ -127,100 +134,8 @@ class Agent():
     def set_memory(self, reward_score: int, mat_pos: list[int], opp_past_actions: list[int]) -> None:
         pass
 
-# class DummyAgent(Agent):
-#     def __init__(self, id) -> None:
-#         super().__init__(id)
-#         self.order = 0
-
-#     def decision(self, mat_pos: list[int], opp_past_actions: list[int]) -> list[int]:
-#         if self.order == 0:
-#             self.order += 1
-#             return [5,9,4,4,4,4]
-#         elif self.order == 1:
-#             self.order += 1
-#             return [6,6,7,1,5,5]
-#         else:
-#             self.order = 0
-#             return [3,3,5,5,1,5]
-
-    def score_reset(self) -> None:
-        self.order = 0
-        self.mat_pos = int((self.id - 1.5) * 2)
-        self.c_actions = []
-        self.f_actions = []
-        self.slots = 6
-        self.done = False
-
-class DQNAgent(Agent):
-    def __init__(self, id) -> None:
-        super().__init__(id)
-
-        self.reward = 0
-        self.old_state = None
-        self.state = None
-
-        self.reset_memory()
-
-        self.model = dqn.Network(66, 512, 8)
-        self.trainer = dqn.Trainer(self.model, 0.01, 0.9)
-        self.epsilon = 0.9
-
-    def full_reset(self) -> None:
-        self.reset_cards()
-        self.score_reset()
-        self.reset_memory()
-
-    def decision(self, mat_pos: list[int], opp_past_actions: list[int]) -> list[int]:
-        self.move_selected = self.move_selection(self.get_action())
-        if self.done:
-            result = self.c_actions
-            self.reset_actions()
-            if (verbose):
-                print(f"AI {self.id} | Pos: {self.mat_pos} | Curr: {result} | Futr: {self.c_actions}")
-            return result
-        else:
-            self.set_memory(0, mat_pos, opp_past_actions)
-            return self.decision(mat_pos, opp_past_actions)
-
-    def move_selection(self, choice: int) -> int:
-        if self.slots <= 0:
-            self.slots = 6 + self.slots
-            self.done = True
-            res = -1
-        else:
-            move_id = self.play_move(choice)
-            move = ALL_MOVES_NUM[move_id]
-            self.append_actions(move)
-            self.update_slots(move)
-            res = move_id
-        return res
-
-    def set_memory(self, reward_score: int, mat_pos: list[int], opp_past_actions: list[int]) -> None:
-        opp_actions = opp_past_actions
-        if len(opp_past_actions) == 0:
-            opp_actions = [0] * 6
-
-        self.old_state = self.state
-        self.state = self.get_state(mat_pos, opp_actions)
-        self.state = np.array(self.state, dtype=int)
-        
-        self.reward = self.get_reward(reward_score)
-
-        state = self.old_state
-        action = self.move_selected - 1
-        reward = self.reward
-        new_state = self.state
-
-        self.trainer.train(state, action, reward, new_state)
-
-    def reset_memory(self) -> None:
-        hand = sorted([h-1 for h in self.hand])
-        hand = self.convert_binary(hand, 3) # 12 each
-        mat_pos = [-1, 1]
-        bin_mat_pos = self.convert_binary([p+4 for p in mat_pos], 3) # 6 instead of 2
-        opp_actions = curr_actions = [0, 0, 0, 0] * 6 # 24 each! 24 * 3 = 72 #  = futr_actions
-        self.state = [*hand, *bin_mat_pos, *opp_actions, *curr_actions] #, *futr_actions
-        self.state = np.array(self.state, dtype=int)
+    def get_action(self) -> int:
+        return int(random.random() * 4)
 
     def convert_binary(self, numbers: list[int], size: int) -> None:
         res = []
@@ -248,32 +163,155 @@ class DQNAgent(Agent):
             c_actions[i] = a
         bin_c_actions = self.convert_binary(c_actions, 4)
 
-        # f_actions = [0] * 6
-        # for i, a in enumerate(self.f_actions):
-        #     f_actions[i] = a
-        # bin_f_actions = self.convert_binary(f_actions, 4)
-
-        return [*hand, *bin_mat_pos, *bin_o_actions, *bin_c_actions] #, *bin_f_actions
+        return [*hand, *bin_mat_pos, *bin_o_actions, *bin_c_actions]
 
     def get_reward(self, reward_score: int) -> int:
         reward = reward_score
         return reward
 
+class AllRandomAgent(Agent):
+    def __init__(self, id) -> None:
+        super().__init__(id)
+
     def get_action(self) -> int:
-        move = 0
-        if random.random() < self.epsilon:
-            move = int(random.random() * 4)
-            if (verbose):
-                print(f"explore: {self.epsilon}")
+        return int(random.random() * 8)
+
+    def move_selection(self, choice: int) -> int:
+        if self.slots <= 0:
+            self.slots = 6 + self.slots
+            self.done = True
+            res = 0
         else:
-            move = self.trainer.predict(self.state, self.hand)
-            if (verbose):
-                print(f"exploit: {self.epsilon}")
+            move = ALL_MOVES_NUM[choice + 1]
+            self.append_actions(move)
+            self.update_slots(move)
+            res = choice
+        return res
+
+    def score_reset(self) -> None:
+        self.order = 0
+        self.mat_pos = int((self.id - 1.5) * 2)
+        self.c_actions = []
+        self.f_actions = []
+        self.slots = 6
+        self.done = False
+
+# basic Linear fc for DQN
+class LinearDQNAgent(Agent):
+    def __init__(self, id) -> None:
+        super().__init__(id)
+
+        self.reward = 0
+        self.old_state = None
+        self.state = None
+
+        self.old_hand = None
+
+        self.reset_memory()
+
+        self.model = dqn.LinearQNetwork(66, 256, 9)
+        self.trainer = dqn.Trainer(self.model, 0.001, 0.9, 1.0)
+        # self.trainer.epsilon = 0.9
+
+    def set_memory(self, reward_score: int, mat_pos: list[int], opp_past_actions: list[int]) -> None:
+        opp_actions = opp_past_actions
+        if len(opp_past_actions) == 0:
+            opp_actions = [0] * 6
+
+        self.old_state = self.state
+        self.state = self.get_state(mat_pos, opp_actions)
+        self.state = np.array(self.state, dtype=int)
+        
+        self.reward = self.get_reward(reward_score)
+
+        state = self.old_state
+        action = self.move_selected - 1
+        reward = self.reward
+        new_state = self.state
+
+        self.trainer.train(state, action, reward, new_state, self.old_hand)
+
+        self.old_hand = sorted([h-1 for h in self.hand])
+
+    def reset_memory(self) -> None:
+        hand = sorted([h-1 for h in self.hand])
+        bin_hand = self.convert_binary(hand, 3) # 12 each
+        mat_pos = [-1, 1]
+        bin_mat_pos = self.convert_binary([p+4 for p in mat_pos], 3) # 6 instead of 2
+        opp_actions = curr_actions = [0, 0, 0, 0] * 6 # 24 each! 24 * 2 = 48
+        self.state = [*bin_hand, *bin_mat_pos, *opp_actions, *curr_actions]
+        self.state = np.array(self.state, dtype=int)
+        self.old_hand = hand
+
+    def get_action(self) -> int:
+        move = self.trainer.predict(self.state, self.hand)
         return move
+
+    # all moves
+    # def move_selection(self, choice: int) -> int:
+    #     if self.slots <= 0:
+    #         self.slots = 6 + self.slots
+    #         self.done = True
+    #         res = 0
+    #     else:
+    #         move = ALL_MOVES_NUM[choice + 1]
+    #         self.append_actions(move)
+    #         self.update_slots(move)
+    #         res = choice
+    #     return res
+
+class RNNDQNAgent(Agent):
+    def __init__(self, id) -> None:
+        super().__init__(id)
+
+        self.reward = 0
+        self.old_state = None
+        self.state = None
+
+        self.sequence_length = 5
+
+        self.reset_memory()
+
+        self.model = dqn.RNNQNetwork(66, 256, 8)
+        self.trainer = dqn.RNNTrainer(self.model, 0.001, 0.9, 1.0)
+
+    def set_memory(self, reward_score: int, mat_pos: list[int], opp_past_actions: list[int]) -> None:
+        opp_actions = opp_past_actions
+        if len(opp_past_actions) == 0:
+            opp_actions = [0] * 6
+
+        self.old_state = copy.deepcopy(self.state)
+        state = self.get_state(mat_pos, opp_actions)
+        self.state = np.roll(self.state, -1, axis=0)
+        self.state[-1, :] = state
+        
+        self.reward = self.get_reward(reward_score)
+
+        state = self.old_state
+        action = self.move_selected - 1
+        reward = self.reward
+        new_state = self.state
+
+        self.trainer.train(state, action, reward, new_state)
+
+    def reset_memory(self) -> None:
+        hand = sorted([h-1 for h in self.hand])
+        hand = self.convert_binary(hand, 3) # 12 each
+        mat_pos = [-1, 1]
+        bin_mat_pos = self.convert_binary([p+4 for p in mat_pos], 3) # 6 instead of 2
+        opp_actions = curr_actions = [0, 0, 0, 0] * 6 # 24 each! 24 * 2 = 48
+        state = [*hand, *bin_mat_pos, *opp_actions, *curr_actions]
+        self.state = np.zeros((self.sequence_length, 66))
+        self.state[-1, :] = state
+
+    def get_action(self) -> int:
+        move = self.trainer.predict(self.state, self.hand)
+        return move
+
 
 class SimpleGE():
     def __init__(self) -> None:
-        self.ai_1 = DQNAgent(1)
+        self.ai_1 = LinearDQNAgent(1)
         self.ai_2 = Agent(2)
 
         self.curr1 = []
@@ -397,22 +435,44 @@ class SimpleGE():
             self.ai_2.set_memory(reward_score, [self.ai_1.mat_pos, self.ai_2.mat_pos], self.curr1)
 
 ge = SimpleGE()
+resume = 0
+games = 0 + resume
 wins = [0, 0]
 stop = False
-
+target_wins_100 = deque()
+# ge.ai_1.trainer.load("model/checkpoint_epo5_eps010.pth")
+# ge.ai_1.trainer.load("trained/fc_newer/checkpoint_epo50_eps010.pth")
+# ge.ai_1.trainer.epsilon = 0
+# ge.ai_2.trainer.load("trained/fc/checkpoint_epo20_eps122.pth")
+# ge.ai_2.trainer.epsilon = 0
 while not stop:
     winner, curr_score = ge.game_loop()
     if winner != 0:
-        ge.ai_1.epsilon *= 0.999
+        games += 1
+        if ge.ai_1.trainer.epsilon > 0.01:
+            ge.ai_1.trainer.update_epsilon(0.999)
+        # ge.ai_2.trainer.update_epsilon(0.9999)
+
+        # add win
         if winner == 3:
             wins[0] += 1
             wins[1] += 1
         else:
             wins[winner - 1] += 1
+
+        # p1 wins 100
+        if winner == 1 or winner == 3:
+            target_wins_100.append(1)
+        else:
+            target_wins_100.append(0)
+        if games > 100 + resume:
+            target_wins_100.popleft()
+
         # if (verbose):
-        print(f"Winner : AI {winner} | Score : {curr_score} | Wins: {wins} | Eps: {ge.ai_1.epsilon}")
-    if ge.ai_1.epsilon < 0.1:
-        ge.ai_1.epsilon = 0
-    if 20000 in wins:
+        print(f"Games: {games} | Winner : AI {winner} | Score : {curr_score} | Wins: {wins} | WR in 100: {sum(target_wins_100) / 100} | Eps: {ge.ai_1.trainer.epsilon}")
+    # if games % 1000 == 0:
+    #     ge.ai_1.trainer.save(games, 1000)
+        # ge.ai_2.trainer.save(games, 1000)
+    if games > 50000:
         print(f"Total Wins: {wins}")
         stop = True

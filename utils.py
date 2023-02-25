@@ -109,3 +109,14 @@ def action_to_numeric(action: Action) -> int:
             case _:
                 numeric = 0
         return numeric
+
+def convert_binary(numbers: list[int], size: int) -> None:
+    res = []
+    for n in numbers:
+        b = []
+        binary = n
+        for i in range(size):
+            b.append(binary & 1)
+            binary = binary >> 1
+        res.extend(b[::-1])
+    return res
