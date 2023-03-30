@@ -1,0 +1,19 @@
+newest save system (contains epoch, epsilon, model state dict, optimiser state dict, loss)
+started at epsilon 1.0
+agent will add reward to previous result when forced to skip turn
+
+agent 1 trained against agent 2, with the same epsilon decreasing rate
+
+66 input
+256 hidden states
+8 output
+3 linears with relu
+
+around 50-60% winrate against random bot (agent1)
+around 70-80% winrate against random bot (agent2)
+
+
+when played against me:
+it doesn't overfit?
+at least when playing against agent 2, it didnt repeat the moves (could be due to self play, also could be due to having a 0.1 min for epsilon, because I accidentally set epsilon to 0.1 min instead of 0.01 this time)
+but it didnt cycle moves, it did at start, then I was gonna predict it but then it stopped doing that immediately, so I failed to predict.

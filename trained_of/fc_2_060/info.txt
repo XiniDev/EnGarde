@@ -1,0 +1,13 @@
+newest save system (contains epoch, epsilon, model state dict, optimiser state dict, loss)
+started at epsilon 1.0
+agent will add reward to previous result when forced to skip turn
+
+played against fc at epsilon 0.5
+
+66 input
+256 hidden states
+8 output
+3 linears with relu
+
+around 80-90% winrate against random bot (highest peak at 90%)
+around 60-70% winrate against fc at epsilon 0.0 (noticed some very high disparities, meaning sometimes it will win 15:1, but lose the same way otherwise)

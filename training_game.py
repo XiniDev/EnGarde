@@ -58,6 +58,12 @@ class Agent():
         self.done = False
 
         self.move_selected = None
+
+        # freq stuff
+        self.move_freq = [0,0,0,0,0,0,0,0,0]
+        self.begin_freq = [0,0,0,0,0,0,0,0,0]
+        
+        self.begin_new = True
     
     def full_reset(self) -> None:
         self.reset_cards()
@@ -80,6 +86,9 @@ class Agent():
         self.f_actions = []
         self.slots = 6
         self.done = False
+
+        # freq stuff
+        self.begin_new = True
     
     def reset_actions(self) -> None:
         self.done = False
@@ -110,6 +119,13 @@ class Agent():
             self.append_actions(move)
             self.update_slots(move)
             res = move_id
+
+        # freq stuff
+        self.move_freq[res] += 1
+        if self.begin_new:
+            self.begin_freq[res] += 1
+            self.begin_new = False
+
         return res
 
     def play_move(self, choice: int) -> int:
@@ -169,32 +185,46 @@ class Agent():
         reward = reward_score
         return reward
 
-class AllRandomAgent(Agent):
-    def __init__(self, id) -> None:
-        super().__init__(id)
+# class ReactiveAgent(Agent):
+#     def __init__(self, id) -> None:
+#         super().__init__(id)
 
-    def get_action(self) -> int:
-        return int(random.random() * 8)
+#         self.opp_actions = None
+#         self.mat_pos = None
 
-    def move_selection(self, choice: int) -> int:
-        if self.slots <= 0:
-            self.slots = 6 + self.slots
-            self.done = True
-            res = 0
-        else:
-            move = ALL_MOVES_NUM[choice + 1]
-            self.append_actions(move)
-            self.update_slots(move)
-            res = choice
-        return res
+#         self.reset_memory()
+        
+#     def set_memory(self, reward_score: int, mat_pos: list[int], opp_past_actions: list[int]) -> None:
+#         opp_actions = opp_past_actions
+#         if len(opp_past_actions) == 0:
+#             opp_actions = [0] * 6
 
-    def score_reset(self) -> None:
-        self.order = 0
-        self.mat_pos = int((self.id - 1.5) * 2)
-        self.c_actions = []
-        self.f_actions = []
-        self.slots = 6
-        self.done = False
+#         self.opp_actions = opp_actions
+#         self.mat_pos = mat_pos
+
+#     def reset_memory(self) -> None:
+#         self.mat_pos = [-1, 1]
+#         self.opp_actions = [0] * 6
+
+#     def get_action(self) -> int:
+#         choice = int(random.random() * 4)
+#         match self.hand[choice]:
+#             case 1:
+#                 # lunge
+#             case 2:
+#                 # parry
+#             case 3:
+#                 # riposte
+#             case 4:
+#                 # thrust
+#             case 5:
+#                 # fleche
+#             case 6:
+#                 # fake
+#             case 7:
+#                 # dodge
+#             case 8:
+#                 # move
 
 # basic Linear fc for DQN
 class LinearDQNAgent(Agent):
@@ -209,8 +239,8 @@ class LinearDQNAgent(Agent):
 
         self.reset_memory()
 
-        self.model = dqn.LinearQNetwork(66, 256, 9)
-        self.trainer = dqn.Trainer(self.model, 0.001, 0.9, 1.0)
+        self.model = dqn.LinearQNetwork(66, 256, 8)
+        self.trainer = dqn.LinearTrainer(self.model, 0.001, 0.9, 1.0)
         # self.trainer.epsilon = 0.9
 
     def set_memory(self, reward_score: int, mat_pos: list[int], opp_past_actions: list[int]) -> None:
@@ -247,19 +277,7 @@ class LinearDQNAgent(Agent):
         move = self.trainer.predict(self.state, self.hand)
         return move
 
-    # all moves
-    # def move_selection(self, choice: int) -> int:
-    #     if self.slots <= 0:
-    #         self.slots = 6 + self.slots
-    #         self.done = True
-    #         res = 0
-    #     else:
-    #         move = ALL_MOVES_NUM[choice + 1]
-    #         self.append_actions(move)
-    #         self.update_slots(move)
-    #         res = choice
-    #     return res
-
+# RNN for DQN
 class RNNDQNAgent(Agent):
     def __init__(self, id) -> None:
         super().__init__(id)
@@ -267,6 +285,8 @@ class RNNDQNAgent(Agent):
         self.reward = 0
         self.old_state = None
         self.state = None
+
+        self.old_hand = None
 
         self.sequence_length = 5
 
@@ -292,7 +312,9 @@ class RNNDQNAgent(Agent):
         reward = self.reward
         new_state = self.state
 
-        self.trainer.train(state, action, reward, new_state)
+        self.trainer.train(state, action, reward, new_state, self.old_hand)
+
+        self.old_hand = sorted([h-1 for h in self.hand])
 
     def reset_memory(self) -> None:
         hand = sorted([h-1 for h in self.hand])
@@ -303,6 +325,7 @@ class RNNDQNAgent(Agent):
         state = [*hand, *bin_mat_pos, *opp_actions, *curr_actions]
         self.state = np.zeros((self.sequence_length, 66))
         self.state[-1, :] = state
+        self.old_hand = hand
 
     def get_action(self) -> int:
         move = self.trainer.predict(self.state, self.hand)
@@ -312,7 +335,7 @@ class RNNDQNAgent(Agent):
 class SimpleGE():
     def __init__(self) -> None:
         self.ai_1 = LinearDQNAgent(1)
-        self.ai_2 = Agent(2)
+        self.ai_2 = LinearDQNAgent(2)
 
         self.curr1 = []
         self.curr2 = []
@@ -434,24 +457,54 @@ class SimpleGE():
         else:
             self.ai_2.set_memory(reward_score, [self.ai_1.mat_pos, self.ai_2.mat_pos], self.curr1)
 
-ge = SimpleGE()
-resume = 0
+class DoubleGE(SimpleGE):
+    def __init__(self, model_strs: list[str], fixed_epsilon: int) -> None:
+        super().__init__()
+        self.loaded_models = model_strs
+        self.curr_agent_id = -1
+        self.fixed_epsilon = fixed_epsilon
+        
+    def reset(self) -> None:
+        self.ai_1.full_reset()
+        self.ai_2.full_reset()
+        self.curr1 = []
+        self.curr2 = []
+        self.score = [0, 0]
+        self.states = [[0,0], [0,0], [0,0], [0,0]]
+        self.load_random()
+
+    def load_random(self) -> None:
+        self.curr_agent_id = random.randrange(0, len(self.loaded_models))
+        self.ai_2.trainer.load(self.loaded_models[self.curr_agent_id])
+        self.ai_2.trainer.epsilon = self.fixed_epsilon
+
+model_strs = ["trained_wd/fc_self_play/agent1/checkpoint_epo50_eps100.pth", "trained_wd/fc_self_play/agent2/checkpoint_epo50_eps100.pth"]
+
+# ge = SimpleGE()
+ge = DoubleGE(model_strs, 0.4)
+
+resume = 31000
 games = 0 + resume
 wins = [0, 0]
 stop = False
 target_wins_100 = deque()
-# ge.ai_1.trainer.load("model/checkpoint_epo5_eps010.pth")
-# ge.ai_1.trainer.load("trained/fc_newer/checkpoint_epo50_eps010.pth")
+total_games = 50000
+ge.ai_1.trainer.load("model/checkpoint_epo31_eps100.pth")
+# ge.ai_1.trainer.load("trained_wd/fc_self_play/agent1/checkpoint_epo50_eps100.pth")
+# ge.ai_1.trainer.load("trained_wd/fc/checkpoint_epo50_eps100.pth")
+# ge.ai_1.trainer.load("trained_wd/fc_self_play_2nd/050/checkpoint_epo50_eps100.pth")
 # ge.ai_1.trainer.epsilon = 0
-# ge.ai_2.trainer.load("trained/fc/checkpoint_epo20_eps122.pth")
+# ge.ai_2.trainer.load("trained_wd/fc_self_play/agent1/checkpoint_epo50_eps100.pth")
+# ge.ai_2.trainer.load("trained/fc/checkpoint_epo50_eps010.pth")
 # ge.ai_2.trainer.epsilon = 0
+
 while not stop:
     winner, curr_score = ge.game_loop()
     if winner != 0:
         games += 1
-        if ge.ai_1.trainer.epsilon > 0.01:
-            ge.ai_1.trainer.update_epsilon(0.999)
-        # ge.ai_2.trainer.update_epsilon(0.9999)
+        if ge.ai_1.trainer.epsilon > 0.1:
+            ge.ai_1.trainer.update_epsilon(0.9999)
+        #     ge.ai_2.trainer.update_epsilon(0.9999)
 
         # add win
         if winner == 3:
@@ -470,9 +523,15 @@ while not stop:
 
         # if (verbose):
         print(f"Games: {games} | Winner : AI {winner} | Score : {curr_score} | Wins: {wins} | WR in 100: {sum(target_wins_100) / 100} | Eps: {ge.ai_1.trainer.epsilon}")
-    # if games % 1000 == 0:
-    #     ge.ai_1.trainer.save(games, 1000)
-        # ge.ai_2.trainer.save(games, 1000)
-    if games > 50000:
+        # print(ge.curr_agent_id)
+    if games % 1000 == 0:
+        ge.ai_1.trainer.save(1, games, 1000)
+        # ge.ai_2.trainer.save(2, games, 1000)
+    if games > total_games:
         print(f"Total Wins: {wins}")
+        print(f"AI 1 Move Freq: {ge.ai_1.move_freq}")
+        print(f"AI 2 Move Freq: {ge.ai_2.move_freq}")
+        
+        print(f"AI 1 Begin Freq: {ge.ai_1.begin_freq}")
+        print(f"AI 2 Begin Freq: {ge.ai_2.begin_freq}")
         stop = True

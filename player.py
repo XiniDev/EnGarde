@@ -8,13 +8,10 @@ import math
 
 # load animation images
 
-PLAYER_IMG_WIDTH = 640 * U.IMG_SCALE
-PLAYER_IMG_HEIGHT = 360 * U.IMG_SCALE
-
 SPRITE_FRAMES = 4
 
 player_img = pygame.image.load("assets/sprites/character.png")
-player_2_img = pygame.transform.scale(player_img, (PLAYER_IMG_WIDTH, PLAYER_IMG_HEIGHT))
+player_2_img = pygame.transform.scale(player_img, (U.SPRITE_IMG_WIDTH, U.SPRITE_IMG_HEIGHT))
 player_1_img = pygame.transform.flip(player_2_img, True, False)
 player_imgs = [player_1_img, player_2_img]
 
@@ -39,7 +36,7 @@ class Player():
         frame_x = 0
         frame_increment = math.floor(frames / (U.ANIMATION_FRAMES / SPRITE_FRAMES)) % 4 if frames >= 0 else 0
         if player == 0:
-            frame_x = PLAYER_IMG_WIDTH - self.width - self.width * frame_increment
+            frame_x = U.SPRITE_IMG_WIDTH - self.width - self.width * frame_increment
         else:
             frame_x = self.width * frame_increment
 

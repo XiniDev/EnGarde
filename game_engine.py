@@ -10,6 +10,9 @@ from card_engine import *
 from player import *
 from ai_engine import *
 
+action_icons_img = pygame.image.load("assets/sprites/action_icons.png")
+action_icons_img = pygame.transform.scale(action_icons_img, (U.SPRITE_IMG_WIDTH, U.SPRITE_IMG_HEIGHT))
+
 # game engine class
 
 class Game_Engine():
@@ -66,7 +69,7 @@ class Game_Engine():
             if self.gamemode >= 3:
                 self.players[0] = AI_Engine()
                 self.players[0].start()
-            self.players[1] = AI_Engine()
+            self.players[1] = Linear_AI_Engine()
             self.players[1].start()
     
     def set_gamemode(self, gamemode: int) -> None:
@@ -81,26 +84,30 @@ class Game_Engine():
         win.blit(pygame.font.SysFont('Comic Sans MS', 30).render("Turn " + str(self.turn), False, (255, 255, 255)), (0, 0))
 
     def display_actions(self, win: pygame.Surface) -> None:
+        ACTION_ICON_SIZE = 27
+        CONTAINER_SIZE = ACTION_ICON_SIZE + 6
+        BAR_SIZE = CONTAINER_SIZE * 6
+
         # actions holder
-        pygame.draw.rect(win, (128, 128, 128), (U.X_CENTER - 600, 50, 300, 50))
-        pygame.draw.rect(win, (128, 128, 128), (U.X_CENTER + 300, 50, 300, 50))
+        pygame.draw.rect(win, (128, 128, 128), (U.X_CENTER - (BAR_SIZE + 400), 40, BAR_SIZE, CONTAINER_SIZE))
+        pygame.draw.rect(win, (128, 128, 128), (U.X_CENTER + 400, 40, BAR_SIZE, CONTAINER_SIZE))
 
         # action holder
-        pygame.draw.rect(win, (200, 0, 0), (U.X_CENTER - 600 + 50 * (self.action - 1), 50, 50, 50))
-        pygame.draw.rect(win, (200, 0, 0), (U.X_CENTER + 300 + 50 * (self.action - 1), 50, 50, 50))
+        pygame.draw.rect(win, (200, 0, 0), (U.X_CENTER - (BAR_SIZE + 400) + CONTAINER_SIZE * (self.action - 1), 40, CONTAINER_SIZE, CONTAINER_SIZE))
+        pygame.draw.rect(win, (200, 0, 0), (U.X_CENTER + 400 + CONTAINER_SIZE * (self.action - 1), 40, CONTAINER_SIZE, CONTAINER_SIZE))
 
         # action symbols
-        for index, action in enumerate(self.curr_actions):
-            win.blit(pygame.font.SysFont('Comic Sans MS', 30).render(action.symbol, False, (255, 255, 255)), (U.X_CENTER - 600 + 50 * index + 15, 50))
-        for index, action in enumerate(self.past_actions):
-            win.blit(pygame.font.SysFont('Comic Sans MS', 30).render(action.symbol, False, (255, 255, 255)), (U.X_CENTER - 600 + 50 * index + 15, 100))
-        
+        self.render_actions(win, self.curr_actions, -(BAR_SIZE + 400), 40, 0)
+        self.render_actions(win, self.past_actions, -(BAR_SIZE + 400), 80, 0)
+    
         # opponent action symbols
-        # if self.running_turn:
-        for index, action in enumerate(self.opp_actions):
-            win.blit(pygame.font.SysFont('Comic Sans MS', 30).render(action.symbol, False, (255, 255, 255)), (U.X_CENTER + 300 + 50 * index + 15, 50))
-        for index, action in enumerate(self.opp_actions_past):
-            win.blit(pygame.font.SysFont('Comic Sans MS', 30).render(action.symbol, False, (255, 255, 255)), (U.X_CENTER + 300 + 50 * index + 15, 100))
+        self.render_actions(win, self.opp_actions, 400, 40, 1)
+        self.render_actions(win, self.opp_actions_past, 400, 80, 1)
+    
+    def render_actions(self, win: pygame.Surface, actions: list[Action], from_center: int, height: int, is_opp: int):
+        for index, action in enumerate(actions):
+            win.blit(action_icons_img, (U.X_CENTER + from_center + (27 + 6) * index + 3, height + 3), ((U.ACTION_SYMBOLS.index(action.symbol) * 27 * 2, 27 * 2 * is_opp, 27, 27)))
+            # win.blit(pygame.font.SysFont('Comic Sans MS', 30).render(action.symbol, False, (255, 255, 255)), (U.X_CENTER + from_center + 50 * index + 15, height))
     
     def resolve_turn(self) -> None:
         self.update_distance()
@@ -222,9 +229,9 @@ class Game_Engine():
             r0 = 10 * (p1 * 2 - p2) + buffer
             r1 = 10 * (p2 * 2 - p1) + buffer
             # now rewards are:
-            # -1 = lose
-            # 1 = tie
-            # 3 = win
+            # -10 = lose
+            # 10 = tie
+            # 20 = win
             if self.gamemode >= 3:
                 self.set_ai_states(0, r0)
             self.set_ai_states(1, r1)
@@ -234,7 +241,7 @@ class Game_Engine():
         # this is because one side scored, so that means the ai should record positions back to default, as the game resets
         # instead of recording position ended when scoring, not sure bout this yet tho
         # original self.playerModels[0].mat_pos, self.playerModels[1].mat_pos
-        self.players[index].set_memory(reward_score, [self.playerModels[0].mat_pos, self.playerModels[1].mat_pos], self.curr_actions, self.score, self.turn)
+        self.players[index].set_memory(reward_score, [self.playerModels[0].mat_pos, self.playerModels[1].mat_pos], self.curr_actions)
         # print(f"opp_past_actions: {self.players[index].opp_past_actions}")
         # print(f"opp_past_moves: {self.players[index].opp_past_moves}")
     

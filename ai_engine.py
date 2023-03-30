@@ -1,6 +1,8 @@
 import random
 import numpy as np
 
+import copy
+
 import utils as U
 
 from collections import deque
@@ -26,30 +28,14 @@ class AI_Engine():
         self.curr_actions = []
         self.futr_actions = []
 
-        # hyperparameters
-
-        # self.TURN_MEMORY = 1
-
-        # pre-processing
-        self.curr_deck = deque()
-
         # memory
 
-        self.old_hand = None
-
+        self.reward = 0
         self.old_state = None
         self.state = None
 
         self.move_selected = -1
 
-        self.scores = [0, 0]
-
-        # rewards
-        self.reward = 0
-
-        # deep q network
-        self.model = dqn.LinearQNetwork(66, 256, 8)
-        self.trainer = dqn.Trainer(self.model, 0.001, 0.9, 0.0)
 
     def reset(self) -> None:
         self.card_engine.reset()
@@ -68,35 +54,6 @@ class AI_Engine():
         self.past_actions = self.curr_actions
         self.curr_actions = self.futr_actions
         self.futr_actions = []
-    
-    def reset_memory(self) -> None:
-
-        self.trainer.load("trained/fc_newer/checkpoint_epo50_eps010.pth")
-
-        # pre-processing
-        self.curr_deck = deque()
-
-        hand = sorted([move.id - 1 for move in self.card_engine.hand])
-        bin_hand = U.convert_binary(hand, 3)
-
-        mat_pos = [-1, 1]
-        bin_mat_pos = U.convert_binary([p+4 for p in mat_pos], 3)
-
-        # opp_actions = curr_actions = futr_actions = [0, 0, 0, 0, 0, 0]
-        bin_o_actions = bin_c_actions = [0, 0, 0, 0] * 6
-
-        self.scores = [0, 0]
-        turn = 1
-
-        # self.state = [*hand, *mat_pos, *opp_actions, *curr_actions, *futr_actions]
-        self.state = [*bin_hand, *bin_mat_pos, *bin_o_actions, *bin_c_actions]
-        self.state = np.array(self.state, dtype=int)
-
-        self.old_hand = hand
-
-    # def update_rewards(self, opp: int, ai: int, action: int) -> None:
-    #     # no one win = 0, opp win = -10, ai win = 10, tie = 10
-    #     self.rewards[action - 1] = (ai - opp) * 10 + (ai * opp * 10)
 
     # decision stuff
 
@@ -116,36 +73,11 @@ class AI_Engine():
             print(f"AI Curr: {result} | AI Fut: {self.curr_actions} | AI Fut2: {self.futr_actions}")
             return result
         else:
-            self.set_memory(0, mat_pos, opp_past_actions, scores, turn)
+            self.set_memory(0, mat_pos, opp_past_actions)
             return self.decision(mat_pos, opp_past_actions, scores, turn)
-
-    def set_memory(self, reward_score: int, mat_pos: list[int], opp_past_actions: list[Action], scores: list[int], turn: int) -> None:
-        opp_actions = opp_past_actions
-        if len(opp_past_actions) == 0:
-            opp_actions = [0] * U.ACTIONS_MAX
-
-        self.old_state = self.state
-        self.state = self.get_state(mat_pos, opp_actions, scores, turn)
-        self.state = np.array(self.state, dtype=int)
-
-        self.scores = scores
-        
-        self.reward = self.get_reward(reward_score)
-
-        # print(f"agent move: {self.move_selected} | agent state: {self.state}")
-
-        state = self.old_state
-        action = self.move_selected - 1
-        reward = self.reward
-        new_state = self.state
-
-        self.trainer.train(state, action, reward, new_state, self.old_hand)
-        # print(self.trainer.model)
-
-        self.old_hand = sorted([move.id - 1 for move in self.card_engine.hand])
         
 
-    def get_state(self, mat_pos: list[int], opp_past_actions: list[Action], scores: list[int], turn: int) -> list[int]:
+    def get_state(self, mat_pos: list[int], opp_past_actions: list[Action]) -> list[int]:
         # sorted hand so same hand of different order literally means the same thing to the agent, then convert to binary so its easily differentiable for the agent
         hand = sorted([move.id - 1 for move in self.card_engine.hand])
         bin_hand = U.convert_binary(hand, 3)
@@ -193,17 +125,11 @@ class AI_Engine():
             move = self.card_engine.play_move(self.get_action())
             self.append_actions(move)
             self.update_slots(move)
-            self.remember_move(move)
             # print(self.card_engine.deck)                  # by 4 moves it should know exactly the order of its deck
-            print(self.curr_deck)
             res = move.id
         return res
     
     def get_action(self) -> int:
-        # p1 = self.scores[0]
-        # p2 = self.scores[1]
-        # self.epsilon = 0.9 - 0.02 * ((p1 + p2) * 2 - (p2 - p1))
-
         hand = [move.id for move in self.card_engine.hand]
         move = self.trainer.predict(self.state, hand)
         return move
@@ -224,50 +150,132 @@ class AI_Engine():
     
     def ai_done(self) -> None:
         self.is_ai_done = True
-    
-    # post processing
-
-    def remember_move(self, move: Move) -> None:
-        if len(self.curr_deck) >= self.card_engine.DECK_MAX - self.card_engine.HAND_MAX:
-            self.curr_deck.popleft()
-        self.curr_deck.append(move)
 
 
+# basic Linear fc for DQN
+class Linear_AI_Engine(AI_Engine):
+    def __init__(self) -> None:
+        super().__init__()
 
+        self.reward = 0
+        self.old_state = None
+        self.state = None
 
-    # extra stuff
-    # potential pre processing
+        self.old_hand = None
 
-    # def append_opp_past_actions(self, mat_pos_1: int, mat_pos_2: int, opp_past_actions: list[Action]) -> bool:
-    #     if len(opp_past_actions) == 6:
-    #         if len(self.opp_past_actions) >= self.TURN_MEMORY:
-    #             self.opp_past_actions.pop(self.game_count - self.TURN_MEMORY, None)
-    #         if not self.opp_past_actions.get(self.game_count):
-    #             self.opp_past_actions[self.game_count] = []
-    #         self.opp_past_actions[self.game_count].extend(opp_past_actions)
-    #         print(mat_pos_1, mat_pos_2)
-    #         # self.get_states(mat_pos_1, mat_pos_2)
-    #         # no need to guess for now
-    #         # found = True
-    #         # while found:
-    #         #     found = self.guess_opp_moves()
-    
-    # def guess_opp_moves(self) -> bool:
-    #     if len(self.opp_past_moves) >= self.TURN_MEMORY:
-    #         self.opp_past_moves.pop(self.game_count - self.TURN_MEMORY, None)
-    #     if not self.opp_past_moves.get(self.game_count):
-    #         self.opp_past_moves[self.game_count] = []
-    #     guess_range = len(self.opp_past_actions[self.game_count])
-    #     for i in range(guess_range):
-    #         l = guess_range - i
-    #         if self.guess_index >= l:
-    #             return False
-    #         check = self.opp_past_actions[self.game_count][self.guess_index:l]
-    #         for id, (n, a) in U.ALL_MOVES.items():
-    #             # print(check)
-    #             # print(v)
-    #             if tuple(check) == a:
-    #                 self.opp_past_moves[self.game_count].append(id)
-    #                 self.guess_index += len(a)
-    #                 return True
-    #     return False
+        self.model = dqn.LinearQNetwork(66, 256, 8)
+        self.trainer = dqn.LinearTrainer(self.model, 0.001, 0.9, 1.0)
+
+    def set_memory(self, reward_score: int, mat_pos: list[int], opp_past_actions: list[Action]) -> None:
+        opp_actions = opp_past_actions
+        if len(opp_past_actions) == 0:
+            opp_actions = [0] * U.ACTIONS_MAX
+
+        self.old_state = self.state
+        self.state = self.get_state(mat_pos, opp_actions)
+        self.state = np.array(self.state, dtype=int)
+        
+        self.reward = self.get_reward(reward_score)
+
+        # print(f"agent move: {self.move_selected} | agent state: {self.state}")
+
+        state = self.old_state
+        action = self.move_selected - 1
+        reward = self.reward
+        new_state = self.state
+
+        self.trainer.train(state, action, reward, new_state, self.old_hand)
+        # print(self.trainer.model)
+
+        self.old_hand = sorted([move.id - 1 for move in self.card_engine.hand])
+
+    def reset_memory(self) -> None:
+
+        self.trainer.load("trained_wd/fc_self_play_2nd/050/checkpoint_epo50_eps100.pth")
+
+        hand = sorted([move.id - 1 for move in self.card_engine.hand])
+        bin_hand = U.convert_binary(hand, 3)
+
+        mat_pos = [-1, 1]
+        bin_mat_pos = U.convert_binary([p+4 for p in mat_pos], 3)
+
+        bin_o_actions = bin_c_actions = [0, 0, 0, 0] * 6
+
+        # self.state = [*hand, *mat_pos, *opp_actions, *curr_actions, *futr_actions]
+        self.state = [*bin_hand, *bin_mat_pos, *bin_o_actions, *bin_c_actions]
+        self.state = np.array(self.state, dtype=int)
+
+        self.old_hand = hand
+
+    def get_action(self) -> int:
+        hand = [move.id for move in self.card_engine.hand]
+        move = self.trainer.predict(self.state, hand)
+        return move
+        # return int(random.random() * 4)
+
+# RNN for DQN
+class RNN_AI_Engine(AI_Engine):
+    def __init__(self) -> None:
+        super().__init__()
+
+        self.reward = 0
+        self.old_state = None
+        self.state = None
+
+        self.old_hand = None
+
+        self.sequence_length = 5
+
+        self.model = dqn.RNNQNetwork(66, 256, 8)
+        self.trainer = dqn.RNNTrainer(self.model, 0.001, 0.9, 1.0)
+
+    def set_memory(self, reward_score: int, mat_pos: list[int], opp_past_actions: list[Action]) -> None:
+        opp_actions = opp_past_actions
+        if len(opp_past_actions) == 0:
+            opp_actions = [0] * U.ACTIONS_MAX
+
+        self.old_state = copy.deepcopy(self.state)
+        state = self.get_state(mat_pos, opp_actions)
+        self.state = np.roll(self.state, -1, axis=0)
+        self.state[-1, :] = state
+        
+        self.reward = self.get_reward(reward_score)
+
+        # print(f"agent move: {self.move_selected} | agent state: {self.state}")
+
+        state = self.old_state
+        action = self.move_selected - 1
+        reward = self.reward
+        new_state = self.state
+
+        self.trainer.train(state, action, reward, new_state, self.old_hand)
+        # print(self.trainer.model)
+
+        self.old_hand = sorted([move.id - 1 for move in self.card_engine.hand])
+
+    def reset_memory(self) -> None:
+
+        self.trainer.load("trained_wd/rnn_sp_060/checkpoint_epo50_eps100.pth")
+
+        hand = sorted([move.id - 1 for move in self.card_engine.hand])
+        bin_hand = U.convert_binary(hand, 3)
+
+        mat_pos = [-1, 1]
+        bin_mat_pos = U.convert_binary([p+4 for p in mat_pos], 3)
+
+        bin_o_actions = bin_c_actions = [0, 0, 0, 0] * 6
+
+        # self.state = [*hand, *mat_pos, *opp_actions, *curr_actions, *futr_actions]
+        state = [*bin_hand, *bin_mat_pos, *bin_o_actions, *bin_c_actions]
+        self.state = np.zeros((self.sequence_length, 66))
+        # print(self.card_engine.hand)
+        # print(len(bin_hand), len(bin_mat_pos), len(bin_o_actions), len(bin_c_actions))
+        self.state[-1, :] = state
+
+        self.old_hand = hand
+
+    def get_action(self) -> int:
+        hand = [move.id for move in self.card_engine.hand]
+        move = self.trainer.predict(self.state, hand)
+        return move
+        # return int(random.random() * 4)

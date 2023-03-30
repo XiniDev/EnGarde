@@ -5,6 +5,12 @@ from collections import deque
 
 import utils as U
 
+card_icons_img = pygame.image.load("assets/sprites/card_icons.png")
+action_icons_img = pygame.image.load("assets/sprites/action_icons.png")
+
+card_icons_img = pygame.transform.scale(card_icons_img, (U.SPRITE_IMG_WIDTH, U.SPRITE_IMG_HEIGHT))
+action_icons_img = pygame.transform.scale(action_icons_img, (U.SPRITE_IMG_WIDTH, U.SPRITE_IMG_HEIGHT))
+
 class Move():
     def __init__(self, id: int, ALL_MOVES: dict) -> None:
         self.id = None
@@ -118,10 +124,15 @@ class Card_Engine_Display(Card_Engine):
 
         # setting x values for drawing the cards in this order : 3, 1, 2, 4, then sorting it        
         x_value = sorted([U.X_CENTER - size[0] - 5 * U.IMG_SCALE - (((i + 1) // 2) * 100 * U.IMG_SCALE * (-1 if i % 2 == 1 else 1)) for i in range(self.HAND_MAX)])
-        
+
         for i in range(self.HAND_MAX):
             self.cards[i] = win.blit(card_button, (x_value[i], 500))
 
         for i in range(self.HAND_MAX):
-            win.blit(pygame.font.SysFont('Comic Sans MS', 30).render("Move: " + str(self.hand[i].name), False, (255, 255, 255)), (x_value[i], 500))
-            win.blit(pygame.font.SysFont('Comic Sans MS', 18).render(str([action.symbol for action in self.hand[i].actions]), False, (255, 255, 255)), (x_value[i], 600))
+            card_x = ((self.hand[i].id - 1) % 4) * 270
+            card_y = 0 if self.hand[i].id - 1 < 4 else 180
+            win.blit(card_icons_img, (x_value[i], 500), ((card_x, card_y, 270, 180)))
+            for j, action in enumerate(self.hand[i].actions):
+                win.blit(action_icons_img, (6 + x_value[i] + j * (27 + 6), 500 + 180 - 27 - 6), ((U.ACTION_SYMBOLS.index(action.symbol) * 27 * 2, 0, 27, 27)))
+            # win.blit(pygame.font.SysFont('Comic Sans MS', 30).render("Move: " + str(self.hand[i].name), False, (255, 255, 255)), (x_value[i], 500))
+            # win.blit(pygame.font.SysFont('Comic Sans MS', 18).render(str([action.symbol for action in self.hand[i].actions]), False, (255, 255, 255)), (x_value[i], 600))
