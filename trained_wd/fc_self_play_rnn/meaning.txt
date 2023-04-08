@@ -1,0 +1,1 @@
+use rnn to train against both agent 1 and 2 from fc self play

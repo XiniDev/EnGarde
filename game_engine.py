@@ -241,9 +241,12 @@ class Game_Engine():
         # this is because one side scored, so that means the ai should record positions back to default, as the game resets
         # instead of recording position ended when scoring, not sure bout this yet tho
         # original self.playerModels[0].mat_pos, self.playerModels[1].mat_pos
-        self.players[index].set_memory(reward_score, [self.playerModels[0].mat_pos, self.playerModels[1].mat_pos], self.curr_actions)
+
+        # self.players[index].set_memory(reward_score, [self.playerModels[0].mat_pos, self.playerModels[1].mat_pos], self.curr_actions)
+
         # print(f"opp_past_actions: {self.players[index].opp_past_actions}")
         # print(f"opp_past_moves: {self.players[index].opp_past_moves}")
+        pass
     
     def reset_ai_turn(self) -> None:
         if self.gamemode > 0:

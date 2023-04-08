@@ -7,7 +7,7 @@ agent will add reward to previous result when forced to skip turn
 8 output
 3 linears with relu
 
-around 90% winrate against random bot (for epo50)
+around 80-90% winrate against random bot (for epo50)
 
 when played against me:
 doesn't overfit?

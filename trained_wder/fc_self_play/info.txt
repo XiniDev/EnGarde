@@ -1,0 +1,12 @@
+g0x0 means gamma = 0.x0
+
+gamma 0.9 = 0.5 importance on 6 steps
+gamma 0.8 = 0.5 importance on 3 steps
+gamma 0.7 = 0.5 importance on 2 steps
+gamma 0.6 = 0.5 importance on 1 step
+
+0.7 seems to destroy both 0.9 and 0.8 (do more further testing and generate report) (0.95 winrate or more)
+
+0.8 seems to do okay against 0.9
+
+maybe can conclude lower gamma values are better for this game?

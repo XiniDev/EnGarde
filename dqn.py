@@ -9,25 +9,6 @@ from torch import Tensor
 import numpy as np
 import random
 
-class LinearQNetwork(nn.Module):
-    def __init__(self, input_size: int, hidden_size: int, output_size: int) -> None:
-        super(LinearQNetwork, self).__init__()
-        self.linear1 = nn.Linear(input_size, hidden_size)
-        self.linear2 = nn.Linear(hidden_size, hidden_size)
-        self.linear3 = nn.Linear(hidden_size, output_size)
-
-        self.output_size = output_size
-
-    def forward(self, x: Tensor) -> Tensor:
-        x = F.relu(self.linear1(x))
-        x = F.relu(self.linear2(x))
-        # x = F.relu(self.linear3(x))
-        x = self.linear3(x)
-        
-        # print(len(x))
-
-        return x
-
 class Trainer():
     def __init__(self, model: nn.Module, learning_rate: float, gamma: float, epsilon: float) -> None:
         self.model = model
@@ -47,8 +28,8 @@ class Trainer():
             display_eps = "00" + str(display_eps)
         elif display_eps < 100:
             display_eps = "0" + str(display_eps)
-        path = f'./model/checkpoint_epo{self.epoch}_eps{display_eps}.pth'
-        # path = f'./model/agent{id}/checkpoint_epo{self.epoch}_eps{display_eps}.pth'
+        # path = f'./model/checkpoint_epo{self.epoch}_eps{display_eps}.pth'
+        path = f'./model/agent{id}/checkpoint_epo{self.epoch}_eps{display_eps}.pth'
 
         torch.save({
             'epoch': self.epoch,
@@ -70,6 +51,24 @@ class Trainer():
     def update_epsilon(self, decay: float) -> None:
         self.epsilon *= decay
 
+class LinearQNetwork(nn.Module):
+    def __init__(self, input_size: int, hidden_size: int, output_size: int) -> None:
+        super(LinearQNetwork, self).__init__()
+        self.linear1 = nn.Linear(input_size, hidden_size)
+        self.linear2 = nn.Linear(hidden_size, hidden_size)
+        self.linear3 = nn.Linear(hidden_size, output_size)
+
+        self.output_size = output_size
+
+    def forward(self, x: Tensor) -> Tensor:
+        x = F.relu(self.linear1(x))
+        x = F.relu(self.linear2(x))
+        # x = F.relu(self.linear3(x))
+        x = self.linear3(x)
+        
+        # print(len(x))
+
+        return x
 
 class LinearTrainer(Trainer):
     def __init__(self, model: nn.Module, learning_rate: float, gamma: float, epsilon: float) -> None:
@@ -80,9 +79,12 @@ class LinearTrainer(Trainer):
         self.previous_mask = None
         self.previous_action = None
 
-    def train(self, state: np.ndarray, action: int, reward: int, next_state: np.ndarray, hand: list[int]) -> None:
+        self.batch_size = 1000
+        self.memory = []
+
+    def memorise(self, state: np.ndarray, action: int, reward: int, next_state: np.ndarray, hand: list[int]) -> None:
         state = torch.tensor(state, dtype=torch.float)
-        # action = torch.tensor([action], dtype=torch.int)
+        action = torch.tensor([action], dtype=torch.int)
         reward = torch.tensor([reward], dtype=torch.float)
         next_state = torch.tensor(next_state, dtype=torch.float)
 
@@ -92,8 +94,67 @@ class LinearTrainer(Trainer):
         mask = torch.zeros(self.model.output_size)
         mask[available_cards] = 1
 
-        # no op
         if action == -1:
+            self.memory.append([self.previous_state, self.previous_action, reward, self.previous_next_state, self.previous_mask])
+        else:
+            self.memory.append([state, action, reward, next_state, mask])
+
+        self.previous_state = state.clone()
+        self.previous_next_state = next_state.clone()
+        self.previous_mask = mask.clone()
+        self.previous_action = action.item()
+
+    def train_er(self) -> None:
+        # experience relay buffer, sample memory as buffer
+        batch = random.sample(self.memory, self.batch_size)
+
+        states = torch.stack([experience[0] for experience in batch])
+        actions = torch.tensor([experience[1] for experience in batch])
+        rewards = torch.tensor([experience[2] for experience in batch])
+        next_states = torch.stack([experience[3] for experience in batch])
+        masks = torch.stack([experience[4] for experience in batch])
+
+        Q_value = self.model(states)
+
+        # Normalize Q-values using min-max normalization
+        q_min = torch.min(Q_value)
+        q_max = torch.max(Q_value)
+        Q_value = (Q_value - q_min) / (q_max - q_min)
+
+        # make unavailable actions 0 for loss calculation
+        Q_value = Q_value * masks
+
+        # print(self.model(next_state))
+        Q_new_value = rewards + self.gamma * torch.max(self.model(next_states) * masks)
+        target = Q_value.clone()
+
+        # action_mask has boolean values to map the Q_new_values in the right indices of the batch
+        actions_mask = torch.zeros_like(target, dtype=torch.bool)
+        actions_mask[torch.arange(len(actions)), actions] = True
+
+        target[actions_mask] = Q_new_value
+
+        self.optimizer.zero_grad()
+        loss = self.criterion(target, Q_value)
+        loss.backward()
+        # print(loss.item())
+        self.optimizer.step()
+
+    def train(self, state: np.ndarray, action: int, reward: int, next_state: np.ndarray, hand: list[int]) -> None:
+        state = torch.tensor(state, dtype=torch.float)
+        action = torch.tensor([action], dtype=torch.int)
+        reward = torch.tensor([reward], dtype=torch.float)
+        next_state = torch.tensor(next_state, dtype=torch.float)
+
+        available_cards = [h for h in hand]
+        available_cards = torch.tensor(available_cards, dtype=torch.long)
+        print(hand)
+
+        mask = torch.zeros(self.model.output_size)
+        mask[available_cards] = 1
+
+        # no op
+        if action.item() == -1:
             Q_value = self.model(self.previous_state)
 
             # Normalize Q-values using min-max normalization
@@ -124,13 +185,13 @@ class LinearTrainer(Trainer):
             Q_new_value = reward + self.gamma * torch.max(self.model(next_state) * mask)
             target = Q_value.clone()
 
-            target[action] = Q_new_value
+            target[action.item()] = Q_new_value
 
         # print(Q_value, Q_new_value)
         # print(state)
         # print(next_state)
         # print(available_cards)
-        # print(action)
+        # print(action.item())
 
         self.optimizer.zero_grad()
         loss = self.criterion(target, Q_value)
@@ -141,7 +202,7 @@ class LinearTrainer(Trainer):
         self.previous_state = state.clone()
         self.previous_next_state = next_state.clone()
         self.previous_mask = mask.clone()
-        self.previous_action = action
+        self.previous_action = action.item()
 
     def predict(self, state: np.ndarray, hand: list[int]) -> int:
         if random.random() < self.epsilon:
@@ -182,14 +243,16 @@ class RNNQNetwork(nn.Module):
     def __init__(self, input_size: int, hidden_size: int, output_size: int) -> None:
         super(RNNQNetwork, self).__init__()
         self.hidden_size = hidden_size
-        self.rnn = nn.GRU(input_size, hidden_size)                                  # remembers the previous turn cards and deck etc, so dependencies between each turn is tracked compared to LinearQNetwork
-        self.linear = nn.Linear(hidden_size, output_size)                           # linear here to map to output
+        self.rnn = nn.GRU(input_size, hidden_size, batch_first=True)                # remembers the previous turn cards and deck etc, so dependencies between each turn is tracked compared to LinearQNetwork
+        self.linear1 = nn.Linear(hidden_size, hidden_size)                          # linear hidden layer
+        self.linear2 = nn.Linear(hidden_size, output_size)                          # linear here to map to output
 
         self.output_size = output_size
 
     def forward(self, x: Tensor, h: Tensor) -> Tensor:
         out, h = self.rnn(x, h)
-        out = self.linear(out[-1, :])
+        out = F.relu(self.linear1(out[:, -1]))
+        out = self.linear2(out)
         return out, h
 
 class RNNTrainer(Trainer):
@@ -202,9 +265,76 @@ class RNNTrainer(Trainer):
         self.previous_mask = None
         self.previous_action = None
 
+        self.batch_size = 1000
+        self.memory = []
+
+    def memorise(self, state: np.ndarray, action: int, reward: int, next_state: np.ndarray, hand: list[int]) -> None:
+        state = torch.tensor(state, dtype=torch.float)
+        action = torch.tensor([action], dtype=torch.int)
+        reward = torch.tensor([reward], dtype=torch.float)
+        next_state = torch.tensor(next_state, dtype=torch.float)
+
+        available_cards = [h for h in hand]
+        available_cards = torch.tensor(available_cards, dtype=torch.long)
+
+        mask = torch.zeros(self.model.output_size)
+        mask[available_cards] = 1
+
+        if self.hidden_state is None:
+            self.hidden_state = torch.zeros((1, self.batch_size, self.model.hidden_size))       # batch first doesn't affect hidden state I guess
+
+        if action == -1:
+            self.memory.append([self.previous_state, self.previous_action, reward, self.previous_next_state, self.previous_mask])
+        else:
+            self.memory.append([state, action, reward, next_state, mask])
+
+        self.hidden_state = self.hidden_state.detach()
+
+        self.previous_state = state.clone()
+        self.previous_next_state = next_state.clone()
+        self.previous_mask = mask.clone()
+        self.previous_action = action.item()
+
+    def train_er(self) -> None:
+        # experience relay buffer, sample memory as buffer
+        batch = random.sample(self.memory, self.batch_size)
+
+        states = torch.stack([experience[0] for experience in batch])
+        actions = torch.tensor([experience[1] for experience in batch])
+        rewards = torch.tensor([experience[2] for experience in batch])
+        next_states = torch.stack([experience[3] for experience in batch])
+        masks = torch.stack([experience[4] for experience in batch])
+
+        Q_value, self.hidden_state = self.model(states, self.hidden_state)
+
+        # Normalize Q-values using min-max normalization
+        q_min = torch.min(Q_value)
+        q_max = torch.max(Q_value)
+        Q_value = (Q_value - q_min) / (q_max - q_min)
+
+        # make unavailable actions 0 for loss calculation
+        Q_value = Q_value * masks
+
+        # print(self.model(next_states))
+        Q_new_value, _ = self.model(next_states, self.hidden_state)
+        Q_new_value = rewards + self.gamma * torch.max(Q_new_value * masks)
+        target = Q_value.clone()
+
+        # action_mask has boolean values to map the Q_new_values in the right indices of the batch
+        actions_mask = torch.zeros_like(target, dtype=torch.bool)
+        actions_mask[torch.arange(len(actions)), actions] = True
+
+        target[actions_mask] = Q_new_value
+
+        self.optimizer.zero_grad()
+        loss = self.criterion(target, Q_value)
+        loss.backward()
+        # print(loss.item())
+        self.optimizer.step()
+
     def train(self, state: np.ndarray, action: int, reward: int, next_state: np.ndarray, hand: list[int]) -> None:
         state = torch.tensor(state, dtype=torch.float)
-        # action = torch.tensor([action], dtype=torch.int)
+        action = torch.tensor([action], dtype=torch.int)
         reward = torch.tensor([reward], dtype=torch.float)
         next_state = torch.tensor(next_state, dtype=torch.float)
 
@@ -218,8 +348,8 @@ class RNNTrainer(Trainer):
             self.hidden_state = torch.zeros((1, self.model.hidden_size))
 
         # no op
-        if action == -1:
-            Q_value, self.hidden_state = self.model(state, self.hidden_state)
+        if action.item() == -1:
+            Q_value, self.hidden_state = self.model(self.previous_state, self.hidden_state)
 
             # Normalize Q-values using min-max normalization
             q_min = torch.min(Q_value)
@@ -251,13 +381,13 @@ class RNNTrainer(Trainer):
             Q_new_value = reward + self.gamma * torch.max(Q_new_value * mask)
             target = Q_value.clone()
 
-            target[action] = Q_new_value
+            target[action.item()] = Q_new_value
 
         # print(Q_value, Q_new_value)
         # print(state)
         # print(next_state)
         # print(available_cards)
-        # print(action)
+        # print(action.item())
 
         self.optimizer.zero_grad()
         loss = self.criterion(target, Q_value)
@@ -270,7 +400,7 @@ class RNNTrainer(Trainer):
         self.previous_state = state.clone()
         self.previous_next_state = next_state.clone()
         self.previous_mask = mask.clone()
-        self.previous_action = action
+        self.previous_action = action.item()
 
     def predict(self, state: np.ndarray, hand: list[int]) -> int:
         if random.random() < self.epsilon:
@@ -281,9 +411,9 @@ class RNNTrainer(Trainer):
             state = torch.tensor(state, dtype=torch.float)
             available_cards = torch.tensor(available_cards, dtype=torch.long)
 
-            Q_value, _ = self.model(state, torch.zeros((1, self.model.hidden_size)))
+            Q_value, _ = self.model(state.unsqueeze(0), torch.zeros((1, 1, self.model.hidden_size)))
 
-            mask = torch.zeros_like(Q_value)
+            mask = torch.zeros_like(Q_value[0])
             mask[available_cards] = 1
 
             # make them infinite instead of 0 because it uses argmax to calculate

@@ -40,7 +40,7 @@ PISTE_LENGTH = 7
 verbose = False
 
 class Agent():
-    def __init__(self, id) -> None:
+    def __init__(self, id: int, gamma: float) -> None:
         self.id = id
 
         self.mat_pos = int((id - 1.5) * 2)
@@ -185,51 +185,10 @@ class Agent():
         reward = reward_score
         return reward
 
-# class ReactiveAgent(Agent):
-#     def __init__(self, id) -> None:
-#         super().__init__(id)
-
-#         self.opp_actions = None
-#         self.mat_pos = None
-
-#         self.reset_memory()
-        
-#     def set_memory(self, reward_score: int, mat_pos: list[int], opp_past_actions: list[int]) -> None:
-#         opp_actions = opp_past_actions
-#         if len(opp_past_actions) == 0:
-#             opp_actions = [0] * 6
-
-#         self.opp_actions = opp_actions
-#         self.mat_pos = mat_pos
-
-#     def reset_memory(self) -> None:
-#         self.mat_pos = [-1, 1]
-#         self.opp_actions = [0] * 6
-
-#     def get_action(self) -> int:
-#         choice = int(random.random() * 4)
-#         match self.hand[choice]:
-#             case 1:
-#                 # lunge
-#             case 2:
-#                 # parry
-#             case 3:
-#                 # riposte
-#             case 4:
-#                 # thrust
-#             case 5:
-#                 # fleche
-#             case 6:
-#                 # fake
-#             case 7:
-#                 # dodge
-#             case 8:
-#                 # move
-
 # basic Linear fc for DQN
 class LinearDQNAgent(Agent):
-    def __init__(self, id) -> None:
-        super().__init__(id)
+    def __init__(self, id: int, gamma: float) -> None:
+        super().__init__(id, gamma)
 
         self.reward = 0
         self.old_state = None
@@ -240,7 +199,7 @@ class LinearDQNAgent(Agent):
         self.reset_memory()
 
         self.model = dqn.LinearQNetwork(66, 256, 8)
-        self.trainer = dqn.LinearTrainer(self.model, 0.001, 0.9, 1.0)
+        self.trainer = dqn.LinearTrainer(self.model, 0.001, gamma, 1.0)
         # self.trainer.epsilon = 0.9
 
     def set_memory(self, reward_score: int, mat_pos: list[int], opp_past_actions: list[int]) -> None:
@@ -259,7 +218,7 @@ class LinearDQNAgent(Agent):
         reward = self.reward
         new_state = self.state
 
-        self.trainer.train(state, action, reward, new_state, self.old_hand)
+        self.trainer.memorise(state, action, reward, new_state, self.old_hand)
 
         self.old_hand = sorted([h-1 for h in self.hand])
 
@@ -279,8 +238,8 @@ class LinearDQNAgent(Agent):
 
 # RNN for DQN
 class RNNDQNAgent(Agent):
-    def __init__(self, id) -> None:
-        super().__init__(id)
+    def __init__(self, id: int, gamma: float) -> None:
+        super().__init__(id, gamma)
 
         self.reward = 0
         self.old_state = None
@@ -293,7 +252,7 @@ class RNNDQNAgent(Agent):
         self.reset_memory()
 
         self.model = dqn.RNNQNetwork(66, 256, 8)
-        self.trainer = dqn.RNNTrainer(self.model, 0.001, 0.9, 1.0)
+        self.trainer = dqn.RNNTrainer(self.model, 0.001, gamma, 1.0)
 
     def set_memory(self, reward_score: int, mat_pos: list[int], opp_past_actions: list[int]) -> None:
         opp_actions = opp_past_actions
@@ -312,7 +271,7 @@ class RNNDQNAgent(Agent):
         reward = self.reward
         new_state = self.state
 
-        self.trainer.train(state, action, reward, new_state, self.old_hand)
+        self.trainer.memorise(state, action, reward, new_state, self.old_hand)
 
         self.old_hand = sorted([h-1 for h in self.hand])
 
@@ -333,9 +292,9 @@ class RNNDQNAgent(Agent):
 
 
 class SimpleGE():
-    def __init__(self) -> None:
-        self.ai_1 = LinearDQNAgent(1)
-        self.ai_2 = LinearDQNAgent(2)
+    def __init__(self, ai_1: Agent, ai_2: Agent) -> None:
+        self.ai_1 = ai_1
+        self.ai_2 = ai_2
 
         self.curr1 = []
         self.curr2 = []
@@ -458,8 +417,8 @@ class SimpleGE():
             self.ai_2.set_memory(reward_score, [self.ai_1.mat_pos, self.ai_2.mat_pos], self.curr1)
 
 class DoubleGE(SimpleGE):
-    def __init__(self, model_strs: list[str], fixed_epsilon: int) -> None:
-        super().__init__()
+    def __init__(self, ai_1: Agent, ai_2: Agent, model_strs: list[str], fixed_epsilon: int) -> None:
+        super().__init__(ai_1, ai_2)
         self.loaded_models = model_strs
         self.curr_agent_id = -1
         self.fixed_epsilon = fixed_epsilon
@@ -480,20 +439,24 @@ class DoubleGE(SimpleGE):
 
 model_strs = ["trained_wd/fc_self_play/agent1/checkpoint_epo50_eps100.pth", "trained_wd/fc_self_play/agent2/checkpoint_epo50_eps100.pth"]
 
-# ge = SimpleGE()
-ge = DoubleGE(model_strs, 0.4)
+ai_1 = LinearDQNAgent(1, 0.6)
+ai_2 = LinearDQNAgent(2, 0.6)
 
-resume = 31000
+ge = SimpleGE(ai_1, ai_2)
+# ge = DoubleGE(ai_1, ai_2, model_strs, 0.1)
+
+resume = 0
 games = 0 + resume
 wins = [0, 0]
 stop = False
 target_wins_100 = deque()
 total_games = 50000
-ge.ai_1.trainer.load("model/checkpoint_epo31_eps100.pth")
-# ge.ai_1.trainer.load("trained_wd/fc_self_play/agent1/checkpoint_epo50_eps100.pth")
+# ge.ai_1.trainer.load("model/checkpoint_epo11_eps333.pth")
+# ge.ai_1.trainer.load("trained_wder/fc_self_play/g070/agent1/checkpoint_epo50_eps099.pth")
 # ge.ai_1.trainer.load("trained_wd/fc/checkpoint_epo50_eps100.pth")
 # ge.ai_1.trainer.load("trained_wd/fc_self_play_2nd/050/checkpoint_epo50_eps100.pth")
 # ge.ai_1.trainer.epsilon = 0
+# ge.ai_1.trainer.load("trained_wder/fc_self_play/g080/agent1/checkpoint_epo50_eps099.pth")
 # ge.ai_2.trainer.load("trained_wd/fc_self_play/agent1/checkpoint_epo50_eps100.pth")
 # ge.ai_2.trainer.load("trained/fc/checkpoint_epo50_eps010.pth")
 # ge.ai_2.trainer.epsilon = 0
@@ -502,9 +465,17 @@ while not stop:
     winner, curr_score = ge.game_loop()
     if winner != 0:
         games += 1
-        if ge.ai_1.trainer.epsilon > 0.1:
-            ge.ai_1.trainer.update_epsilon(0.9999)
+        # if ge.ai_1.trainer.epsilon > 0.1:
+        #     ge.ai_1.trainer.update_epsilon(0.9999)
         #     ge.ai_2.trainer.update_epsilon(0.9999)
+
+        # erb's training (experience relay buffer)
+        if games % 100 == 0:
+            if ge.ai_1.trainer.epsilon > 0.1:
+                ge.ai_1.trainer.update_epsilon(0.99)
+                ge.ai_1.trainer.train_er()
+                ge.ai_2.trainer.update_epsilon(0.99)
+                ge.ai_2.trainer.train_er()
 
         # add win
         if winner == 3:
@@ -526,7 +497,7 @@ while not stop:
         # print(ge.curr_agent_id)
     if games % 1000 == 0:
         ge.ai_1.trainer.save(1, games, 1000)
-        # ge.ai_2.trainer.save(2, games, 1000)
+        ge.ai_2.trainer.save(2, games, 1000)
     if games > total_games:
         print(f"Total Wins: {wins}")
         print(f"AI 1 Move Freq: {ge.ai_1.move_freq}")
