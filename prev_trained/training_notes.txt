@@ -1,7 +1,0 @@
-changed states to binary
-
-currently using:
-hand
-mat_pos
-opp_past_actions
-curr_actions (your current actions)

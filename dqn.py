@@ -9,6 +9,8 @@ from torch import Tensor
 import numpy as np
 import random
 
+# torch.manual_seed(3407)
+
 class Trainer():
     def __init__(self, model: nn.Module, learning_rate: float, gamma: float, epsilon: float) -> None:
         self.model = model
@@ -28,8 +30,8 @@ class Trainer():
             display_eps = "00" + str(display_eps)
         elif display_eps < 100:
             display_eps = "0" + str(display_eps)
-        # path = f'./model/checkpoint_epo{self.epoch}_eps{display_eps}.pth'
-        path = f'./model/agent{id}/checkpoint_epo{self.epoch}_eps{display_eps}.pth'
+        path = f'./model/checkpoint_epo{self.epoch}_eps{display_eps}.pth'
+        # path = f'./model/agent{id}/checkpoint_epo{self.epoch}_eps{display_eps}.pth'
 
         torch.save({
             'epoch': self.epoch,
@@ -126,16 +128,16 @@ class LinearTrainer(Trainer):
 
         # print(self.model(next_state))
         Q_new_value = rewards + self.gamma * torch.max(self.model(next_states) * masks)
-        target = Q_value.clone()
+        pred = Q_value.clone()
 
         # action_mask has boolean values to map the Q_new_values in the right indices of the batch
-        actions_mask = torch.zeros_like(target, dtype=torch.bool)
+        actions_mask = torch.zeros_like(pred, dtype=torch.bool)
         actions_mask[torch.arange(len(actions)), actions] = True
 
-        target[actions_mask] = Q_new_value
+        pred[actions_mask] = Q_new_value
 
         self.optimizer.zero_grad()
-        loss = self.criterion(target, Q_value)
+        loss = self.criterion(pred, Q_value)
         loss.backward()
         # print(loss.item())
         self.optimizer.step()
@@ -167,9 +169,9 @@ class LinearTrainer(Trainer):
 
             # print(self.model(next_state))
             Q_new_value = reward + self.gamma * torch.max(self.model(self.previous_next_state) * self.previous_mask)
-            target = Q_value.clone()
+            pred = Q_value.clone()
 
-            target[self.previous_action] = Q_new_value
+            pred[self.previous_action] = Q_new_value
         else:
             Q_value = self.model(state)
 
@@ -183,9 +185,9 @@ class LinearTrainer(Trainer):
 
             # print(self.model(next_state))
             Q_new_value = reward + self.gamma * torch.max(self.model(next_state) * mask)
-            target = Q_value.clone()
+            pred = Q_value.clone()
 
-            target[action.item()] = Q_new_value
+            pred[action.item()] = Q_new_value
 
         # print(Q_value, Q_new_value)
         # print(state)
@@ -194,7 +196,7 @@ class LinearTrainer(Trainer):
         # print(action.item())
 
         self.optimizer.zero_grad()
-        loss = self.criterion(target, Q_value)
+        loss = self.criterion(pred, Q_value)
         loss.backward()
         # print(loss.item())
         self.optimizer.step()
@@ -234,8 +236,6 @@ class LinearTrainer(Trainer):
     #     Q_value = self.model(state)
     #     # print(Q_value)
     #     return torch.argmax(Q_value).item()
-
-# STILL LEARNING :(
 
 # RNN implementation
 
@@ -318,16 +318,16 @@ class RNNTrainer(Trainer):
         # print(self.model(next_states))
         Q_new_value, _ = self.model(next_states, self.hidden_state)
         Q_new_value = rewards + self.gamma * torch.max(Q_new_value * masks)
-        target = Q_value.clone()
+        pred = Q_value.clone()
 
         # action_mask has boolean values to map the Q_new_values in the right indices of the batch
-        actions_mask = torch.zeros_like(target, dtype=torch.bool)
+        actions_mask = torch.zeros_like(pred, dtype=torch.bool)
         actions_mask[torch.arange(len(actions)), actions] = True
 
-        target[actions_mask] = Q_new_value
+        pred[actions_mask] = Q_new_value
 
         self.optimizer.zero_grad()
-        loss = self.criterion(target, Q_value)
+        loss = self.criterion(pred, Q_value)
         loss.backward()
         # print(loss.item())
         self.optimizer.step()
@@ -362,9 +362,9 @@ class RNNTrainer(Trainer):
             # print(self.model(next_state))
             Q_new_value, _ = self.model(self.previous_next_state, self.hidden_state)
             Q_new_value = reward + self.gamma * torch.max(Q_new_value * self.previous_mask)
-            target = Q_value.clone()
+            pred = Q_value.clone()
 
-            target[self.previous_action] = Q_new_value
+            pred[self.previous_action] = Q_new_value
         else:
             Q_value, self.hidden_state = self.model(state, self.hidden_state)
 
@@ -379,9 +379,9 @@ class RNNTrainer(Trainer):
             # print(self.model(next_state))
             Q_new_value, _ = self.model(next_state, self.hidden_state)
             Q_new_value = reward + self.gamma * torch.max(Q_new_value * mask)
-            target = Q_value.clone()
+            pred = Q_value.clone()
 
-            target[action.item()] = Q_new_value
+            pred[action.item()] = Q_new_value
 
         # print(Q_value, Q_new_value)
         # print(state)
@@ -390,7 +390,7 @@ class RNNTrainer(Trainer):
         # print(action.item())
 
         self.optimizer.zero_grad()
-        loss = self.criterion(target, Q_value)
+        loss = self.criterion(pred, Q_value)
         loss.backward()
         # print(loss.item())
         self.optimizer.step()

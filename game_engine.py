@@ -17,7 +17,7 @@ action_icons_img = pygame.transform.scale(action_icons_img, (U.SPRITE_IMG_WIDTH,
 
 class Game_Engine():
     def __init__(self) -> None:
-        self.gamemode = 0                      # multiplayer: 0 | singleplayer: 1 | debug: 2 | training >= 3
+        self.gamemode = 0                      # multiplayer: 0 | singleplayer: 1 or above
 
         self.playerModels = [Player(True), Player(False)]
 
@@ -47,29 +47,47 @@ class Game_Engine():
 
         # for animation
         self.action_check = (Blank(), al.states[0], Blank(), al.states[1])
+
+        # type of game
+        self.type = "None"
     
     def update(self, win: pygame.Surface) -> None:
         self.display_score(win)
         self.display_turn(win)
         self.display_actions(win)
         self.resolve_turn()
-        self.playerModels[0].update(self.running_turn, win, 0, self.frames, self.action_check[0], self.action_check[1])
-        self.playerModels[1].update(self.running_turn, win, 1, self.frames, self.action_check[2], self.action_check[3])
+        self.playerModels[0].update(self.running_turn, win, 0, self.frames, self.action_check[0], self.action_check[1], self.action_check[3])
+        self.playerModels[1].update(self.running_turn, win, 1, self.frames, self.action_check[2], self.action_check[3], self.action_check[1])
     
     def reset(self) -> None:
         self.score = [0, 0]
         self.reset_turn()
         if self.gamemode > 0:
-            if self.gamemode >= 3:
-                self.players[0].reset()
             self.players[1].reset()
+            self.players[1].trainer.epsilon = 0.2
     
     def set_ai(self) -> None:
         if self.gamemode > 0:
-            if self.gamemode >= 3:
-                self.players[0] = AI_Engine()
-                self.players[0].start()
-            self.players[1] = Linear_AI_Engine()
+            match self.gamemode:
+                case 1:
+                    self.players[1] = Linear_AI_Engine("trained_wder/fc/g070/checkpoint_epo50_eps099.pth")
+                case 2:
+                    self.players[1] = RNN_AI_Engine("trained_wder/rnn_self_play/g070/agent2/checkpoint_epo50_eps099.pth")
+                case 3:
+                    self.players[1] = RNN_AI_Engine("trained_wder/rnn_self_play/g070/agent2/checkpoint_epo50_eps099.pth")
+                    self.type = "Delayed"
+                case 4:
+                    self.players[1] = RNN_AI_Engine("trained_wder/rnn_self_play_ir/g070/agent1/checkpoint_epo50_eps099.pth")
+                    self.type = "Instant"
+                case 5:
+                    self.players[1] = Linear_AI_Engine("trained_wder/fc_self_play/g070/agent2/checkpoint_epo50_eps099.pth")
+                case 6:
+                    self.players[1] = Linear_AI_Engine("trained_wder/fc_self_play_br/g070_40s/agent1/checkpoint_epo50_eps099.pth")
+                    self.type = "Block"
+                case 7:
+                    self.players[1] = Linear_AI_Engine("trained_wder/fc_self_play_br/g070_84s/agent1/checkpoint_epo50_eps099.pth")
+                    self.type = "Block2"
+            print(self.players[1].ai_path)
             self.players[1].start()
     
     def set_gamemode(self, gamemode: int) -> None:
@@ -77,11 +95,11 @@ class Game_Engine():
         self.set_ai()
     
     def display_score(self, win: pygame.Surface) -> None:
-        score = pygame.font.SysFont('Comic Sans MS', 30).render(str(self.score[0]) + " : " + str(self.score[1]), False, (255, 255, 255))
-        win.blit(score, score.get_rect(center = (U.X_CENTER, 30)))
+        score = pygame.font.Font('assets/font/Minecraft.ttf', 20).render(str(self.score[0]) + " : " + str(self.score[1]), False, (255, 255, 255))
+        win.blit(score, score.get_rect(center = (U.X_CENTER, U.SCALE * 5 + 20)))
 
     def display_turn(self, win: pygame.Surface) -> None:
-        win.blit(pygame.font.SysFont('Comic Sans MS', 30).render("Turn " + str(self.turn), False, (255, 255, 255)), (0, 0))
+        win.blit(pygame.font.Font('assets/font/Minecraft.ttf', 20).render("Turn " + str(self.turn), False, (255, 255, 255)), (U.SCALE * 5 + 5, U.SCALE * 5 + 5))
 
     def display_actions(self, win: pygame.Surface) -> None:
         ACTION_ICON_SIZE = 27
@@ -123,28 +141,17 @@ class Game_Engine():
                 self.frames += 1
                 self.resolve_action()
         else:
-            match self.gamemode:
-                case 0:
-                    # recieve connection signal (if opp_actions are appended, then running_turn = True)
-                    # send curr actions to run on other screen, send past actions to display what they have done previously
-                    if self.is_user_done:
-                        if not self.opp_actions == []:
-                            self.running_turn = True
-                case 1:
-                    if self.is_user_done:
-                        # run AI
-                        self.opp_actions = self.players[1].decision([self.playerModels[0].mat_pos, self.playerModels[1].mat_pos], self.past_actions, self.score, self.turn)
-                        # self.opp_actions = self.players[1].debug_decision()
+            if self.gamemode == 0:
+                # recieve connection signal (if opp_actions are appended, then running_turn = True)
+                # send curr actions to run on other screen, send past actions to display what they have done previously
+                if self.is_user_done:
+                    if not self.opp_actions == []:
                         self.running_turn = True
-                case 2:
-                    self.curr_actions = self.players[0].decision([self.playerModels[0].mat_pos, self.playerModels[1].mat_pos], self.opp_actions_past, self.score, self.turn)
+            else:
+                if self.is_user_done:
+                    # run AI
                     self.opp_actions = self.players[1].decision([self.playerModels[0].mat_pos, self.playerModels[1].mat_pos], self.past_actions, self.score, self.turn)
-
-                    self.running_turn = True
-                case 3:
-                    self.curr_actions = self.players[0].decision([self.playerModels[0].mat_pos, self.playerModels[1].mat_pos], self.opp_actions_past, self.score, self.turn)
-                    self.opp_actions = self.players[1].decision([self.playerModels[0].mat_pos, self.playerModels[1].mat_pos], self.past_actions, self.score, self.turn)
-
+                    # self.opp_actions = self.players[1].debug_decision()
                     self.running_turn = True
 
     def next_action(self) -> None:
@@ -158,8 +165,6 @@ class Game_Engine():
     def next_turn(self) -> None:
         self.turn += 1
         if self.gamemode > 0:
-            if self.gamemode >= 3:
-                self.set_ai_states(0, 0)
             self.set_ai_states(1, 0)
         self.reset_actions()
 
@@ -197,6 +202,15 @@ class Game_Engine():
 
             if 1 in score:
                 self.scored(score[0], score[1])
+            else:
+                if self.type == "Block" or "Block2":
+                    add = 4 if self.type == "Block2" else 0
+                    a_1 = self.curr_actions[self.action - 1]
+                    a_2 = self.opp_actions[self.action - 1]
+                    if a_1.BLOCK == 0 and self.distance == 0:
+                        self.players[1].reward -= a_1.SCORE * (0 + add)
+                    if a_2.BLOCK == 0 and self.distance == 0:
+                        self.players[1].reward += a_1.SCORE * (4 + add)
     
     def resolve_movement(self) -> None:
         for i in range(2):
@@ -226,14 +240,17 @@ class Game_Engine():
         if self.gamemode > 0:
             # have to do something with tie, because tie = 0, but cannot = 0
             buffer = 0
-            r0 = 10 * (p1 * 2 - p2) + buffer
-            r1 = 10 * (p2 * 2 - p1) + buffer
+            bonus = 1
+            if self.type == "Delayed":
+                buffer = self.turn * 5 * (p2 * 2 - p1)
+            if self.type == "Instant":
+                bonus = 2 if self.turn == 1 else 0
+            # r0 = 10 * (p1 * 2 - p2) + buffer
+            r1 = 10 * (p2 * 2 * bonus - p1) + buffer
             # now rewards are:
             # -10 = lose
             # 10 = tie
             # 20 = win
-            if self.gamemode >= 3:
-                self.set_ai_states(0, r0)
             self.set_ai_states(1, r1)
     
     def set_ai_states(self, index: int, reward_score: int) -> None:
@@ -250,8 +267,6 @@ class Game_Engine():
     
     def reset_ai_turn(self) -> None:
         if self.gamemode > 0:
-            if self.gamemode >= 3:
-                self.players[0].reset_turn()
             self.players[1].reset_turn()
 
     def reset_turn(self) -> None:

@@ -154,8 +154,10 @@ class AI_Engine():
 
 # basic Linear fc for DQN
 class Linear_AI_Engine(AI_Engine):
-    def __init__(self) -> None:
+    def __init__(self, ai_path: str) -> None:
         super().__init__()
+
+        self.ai_path = ai_path
 
         self.reward = 0
         self.old_state = None
@@ -164,7 +166,7 @@ class Linear_AI_Engine(AI_Engine):
         self.old_hand = None
 
         self.model = dqn.LinearQNetwork(66, 256, 8)
-        self.trainer = dqn.LinearTrainer(self.model, 0.001, 0.9, 1.0)
+        self.trainer = dqn.LinearTrainer(self.model, 0.001, 0.7, 1.0)
 
     def set_memory(self, reward_score: int, mat_pos: list[int], opp_past_actions: list[Action]) -> None:
         opp_actions = opp_past_actions
@@ -184,14 +186,14 @@ class Linear_AI_Engine(AI_Engine):
         reward = self.reward
         new_state = self.state
 
-        self.trainer.train(state, action, reward, new_state, self.old_hand)
+        self.trainer.memorise(state, action, reward, new_state, self.old_hand)
         # print(self.trainer.model)
 
         self.old_hand = sorted([move.id - 1 for move in self.card_engine.hand])
 
     def reset_memory(self) -> None:
 
-        self.trainer.load("trained_wd/fc_self_play_2nd/050/checkpoint_epo50_eps100.pth")
+        self.trainer.load(self.ai_path)
 
         hand = sorted([move.id - 1 for move in self.card_engine.hand])
         bin_hand = U.convert_binary(hand, 3)
@@ -215,8 +217,10 @@ class Linear_AI_Engine(AI_Engine):
 
 # RNN for DQN
 class RNN_AI_Engine(AI_Engine):
-    def __init__(self) -> None:
+    def __init__(self, ai_path: str) -> None:
         super().__init__()
+
+        self.ai_path = ai_path
 
         self.reward = 0
         self.old_state = None
@@ -227,7 +231,7 @@ class RNN_AI_Engine(AI_Engine):
         self.sequence_length = 5
 
         self.model = dqn.RNNQNetwork(66, 256, 8)
-        self.trainer = dqn.RNNTrainer(self.model, 0.001, 0.9, 1.0)
+        self.trainer = dqn.RNNTrainer(self.model, 0.001, 0.7, 1.0)
 
     def set_memory(self, reward_score: int, mat_pos: list[int], opp_past_actions: list[Action]) -> None:
         opp_actions = opp_past_actions
@@ -248,14 +252,14 @@ class RNN_AI_Engine(AI_Engine):
         reward = self.reward
         new_state = self.state
 
-        self.trainer.train(state, action, reward, new_state, self.old_hand)
+        self.trainer.memorise(state, action, reward, new_state, self.old_hand)
         # print(self.trainer.model)
 
         self.old_hand = sorted([move.id - 1 for move in self.card_engine.hand])
 
     def reset_memory(self) -> None:
 
-        self.trainer.load("trained_wd/rnn_sp_060/checkpoint_epo50_eps100.pth")
+        self.trainer.load(self.ai_path)
 
         hand = sorted([move.id - 1 for move in self.card_engine.hand])
         bin_hand = U.convert_binary(hand, 3)

@@ -1,0 +1,8 @@
+BLOCKING REWARDS ADDED!
+
+br = blocking rewards
+g0x0 = 0.x gamma
+
+ab (s/x) = reward calculation
++ a * s/x (SCORE / IS_X) if blocked
+- b * s/x (SCORE / IS_X) if been blocked

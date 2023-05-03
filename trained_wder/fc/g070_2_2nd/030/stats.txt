@@ -1,0 +1,41 @@
+5000 games played as testing against random agent:
+Total Wins: [4460, 556]
+AI 1 Move Freq: [21399, 64286, 59655, 27507, 63507, 63359, 26143, 22859, 691]
+AI 2 Move Freq: [7666, 47675, 47178, 47563, 47334, 47813, 47297, 47202, 47374]
+AI 1 Begin Freq: [0, 26897, 16868, 1873, 28029, 16054, 13961, 11297, 634]
+AI 2 Begin Freq: [0, 12640, 15702, 14104, 14226, 11665, 15935, 16793, 14548]
+
+Winrate: 89.2%
+
+AI 1 First Score Chance: 41.0%
+AI 2 First Score Chance: 26.4%
+
+Most abused moves are:
+1. Lunge (0.196)
+2. Thrust (0.194)
+3. Flèche (0.193)
+4. Parry (0.182)
+5. Riposte (0.084)
+6. Fake (0.08)
+7. Dodge (0.07)
+8. Move (0.002)
+
+Most abused openers in general are:
+1. Thrust (0.242)
+2. Lunge (0.233)
+3. Parry (0.146)
+4. Flèche (0.139)
+5. Fake (0.121)
+6. Dodge (0.098)
+7. Riposte (0.016)
+8. Move (0.005)
+
+Most abused openers relative to its uses:
+1. Move (0.918)
+2. Fake (0.534)
+3. Dodge (0.494)
+4. Thrust (0.441)
+5. Lunge (0.418)
+6. Parry (0.283)
+7. Flèche (0.253)
+8. Riposte (0.068)

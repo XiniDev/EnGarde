@@ -27,10 +27,10 @@ class Player():
         self.pos_x = self.set_pos_x()
         self.pos_y = U.Y_CENTER - U.IMG_SCALE - self.height
 
-    def update(self, is_running_turn: bool, win: pygame.Surface, player: int, frames: int, action: Action, states: dict[str, int]) -> None:
-        self.render_player(is_running_turn, win, player, frames, action, states)
+    def update(self, is_running_turn: bool, win: pygame.Surface, player: int, frames: int, action: Action, states: dict[str, int], opp_states: dict[str, int]) -> None:
+        self.render_player(is_running_turn, win, player, frames, action, states, opp_states)
     
-    def render_player(self, is_running_turn: bool, win: pygame.Surface, player: int, frames: int, action: Action, states: dict[str, int]) -> None:
+    def render_player(self, is_running_turn: bool, win: pygame.Surface, player: int, frames: int, action: Action, states: dict[str, int], opp_states: dict[str, int]) -> None:
         # pygame.draw.rect(win, (0, 255 if self.is_user else 0, 0 if self.is_user else 255), (self.pos_x, self.pos_y, self.width, self.height))
         
         frame_x = 0
@@ -41,6 +41,8 @@ class Player():
             frame_x = self.width * frame_increment
 
         action_num = U.action_to_numeric(action)
+        if states['score'] == 0 and opp_states['score'] == 1:
+            action_num = 10
 
         frame_y = self.height * (action_num - 1) if is_running_turn else self.height * 4
 

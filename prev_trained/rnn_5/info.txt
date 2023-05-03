@@ -1,8 +1,0 @@
-torch save has epoch data (a bit newer save system)
-
-66 input
-256 hidden states
-8 output
-rnn then linear with 5 states
-
-around 60% winrate its bad

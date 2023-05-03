@@ -1,0 +1,9 @@
+INSTANT REWARDS ADDED!
+
+ir = instant rewards
+g0x0 = 0.x gamma
+
+reward calculation
+bonus = 2 if self.turn == 1 else 0
+r1 = 10 * (score[0] * 2 * bonus - score[1])
+r2 = 10 * (score[1] * 2 * bonus - score[0])

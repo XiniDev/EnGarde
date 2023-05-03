@@ -1,0 +1,8 @@
+DELAYED REWARDS ADDED!
+
+dr = delayed rewards
+g0x0 = 0.x gamma
+
+reward calculation
+r1 += self.turn * 5 * (score[0] * 2 - score[1])
+r2 += self.turn * 5 * (score[1] * 2 - score[0])

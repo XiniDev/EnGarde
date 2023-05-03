@@ -24,7 +24,7 @@ ALL_MOVES_NUM = {
 # check = [SCORE, IS_X, CHARGE, PUSH, MOVE, BLOCK, STANCE]
 ACTION_PROPERTIES = {
     # 0: [0, 0, 0, 0, 0, 1, 1],
-    1: [2, 2, 0, 0, 0, 2, 2],
+    1: [1, 1, 0, 0, 0, 1, 1],
     2: [1.5, 1, 0, 1.5, 1, 1, 1],
     3: [0, 0, 0, 0, 0, 0, 1],
     4: [0, 0, 0, 0, 0, 0, 0],
@@ -64,10 +64,13 @@ class Agent():
         self.begin_freq = [0,0,0,0,0,0,0,0,0]
         
         self.begin_new = True
+
+        self.first_score = 0
     
     def full_reset(self) -> None:
         self.reset_cards()
         self.score_reset()
+        self.other_reset()
         self.reset_memory()
 
     def reset_cards(self) -> None:
@@ -76,7 +79,10 @@ class Agent():
 
         random.shuffle(self.deck)
         self.hand.extend([self.deck.popleft() for i in range(4)])
-    
+
+    def other_reset(self) -> None:
+        self.first_score = 0
+
     def reset_memory(self) -> None:
         pass
 
@@ -271,6 +277,7 @@ class RNNDQNAgent(Agent):
         reward = self.reward
         new_state = self.state
 
+        # print(self.id, state)
         self.trainer.memorise(state, action, reward, new_state, self.old_hand)
 
         self.old_hand = sorted([h-1 for h in self.hand])
@@ -303,13 +310,20 @@ class SimpleGE():
 
         self.states = [[0,0], [0,0], [0,0], [0,0]]
 
+        self.turn = 1
+
     def game_loop(self) -> tuple:
         scored = self.turn_loop()
+        self.turn += 1
         winner = 0
         curr_score = self.score
+
+        first_scores = [0, 0]
+
         if scored:
             self.ai_1.score_reset()
             self.ai_2.score_reset()
+            self.turn = 1
             if (verbose):
                 print(f"Score: [{self.score[0]} : {self.score[1]}]")
         if 15 in self.score:
@@ -319,8 +333,11 @@ class SimpleGE():
                 winner = 1
             elif self.score[1] == 15:
                 winner = 2
+
+            first_scores = [self.ai_1.first_score, self.ai_2.first_score]
+
             self.reset()
-        return winner, curr_score
+        return winner, curr_score, first_scores
     
     def reset(self) -> None:
         self.ai_1.full_reset()
@@ -335,6 +352,12 @@ class SimpleGE():
         past2 = self.ai_2.c_actions
         self.curr1 = self.ai_1.decision([self.ai_1.mat_pos, self.ai_2.mat_pos], past2)
         self.curr2 = self.ai_2.decision([self.ai_1.mat_pos, self.ai_2.mat_pos], past1)
+
+        r1 = 0
+        r2 = 0
+
+        # print(self.turn)
+
         # print(f"Curr 1: {self.curr1} | Curr 2: {self.curr2}")
         for i in range(6):
             distance = self.ai_2.mat_pos - self.ai_1.mat_pos - 1
@@ -344,13 +367,41 @@ class SimpleGE():
             if 1 in score:
                 self.score[0] += score[0]
                 self.score[1] += score[1]
+
+                # try make the agent want to stay as long/short as possible in a turn? if rewards based on turn number
+                # r1 = 10 * (score[0] * 2 - score[1]) + self.turn * 5 * (score[0] * 2 - score[1])
+                # r2 = 10 * (score[1] * 2 - score[0]) + self.turn * 5 * (score[1] * 2 - score[0])
+
+                # if score on first turn then get massive bonus
+                # bonus = 2 if self.turn == 1 else 0
+                # r1 = 10 * (score[0] * 2 * bonus - score[1])
+                # r2 = 10 * (score[1] * 2 * bonus - score[0])
+
+                # normal scoring rewards
                 r1 = 10 * (score[0] * 2 - score[1])
                 r2 = 10 * (score[1] * 2 - score[0])
+
+                if self.turn == 1:
+                    # if score happened in first turn account for that
+                    self.ai_1.first_score += score[0]
+                    self.ai_2.first_score += score[1]
+
                 self.set_ai_states(1, r1)
                 self.set_ai_states(2, r2)
                 return True
-        self.set_ai_states(1, 0)
-        self.set_ai_states(2, 0)
+            else:
+                # add rewards for blocking attack!
+                # blocking agent gets rewards, agent blocked loses rewards
+                a_1 = self.curr1[i]
+                a_2 = self.curr2[i]
+                if ACTION_PROPERTIES[a_1][5] == 0 and distance == 0:
+                    r1 += ACTION_PROPERTIES[a_2][0] * 4
+                    # r2 -= ACTION_PROPERTIES[a_1][0] * 0
+                if ACTION_PROPERTIES[a_2][5] == 0 and distance == 0:
+                    # r2 += ACTION_PROPERTIES[a_1][0] * 4
+                    r1 -= ACTION_PROPERTIES[a_2][0] * 0
+        self.set_ai_states(1, r1)
+        self.set_ai_states(2, r2)
         return False
 
     def check_actions(self, i: int, distance: int) -> None:
@@ -437,32 +488,68 @@ class DoubleGE(SimpleGE):
         self.ai_2.trainer.load(self.loaded_models[self.curr_agent_id])
         self.ai_2.trainer.epsilon = self.fixed_epsilon
 
-model_strs = ["trained_wd/fc_self_play/agent1/checkpoint_epo50_eps100.pth", "trained_wd/fc_self_play/agent2/checkpoint_epo50_eps100.pth"]
 
-ai_1 = LinearDQNAgent(1, 0.6)
-ai_2 = LinearDQNAgent(2, 0.6)
+def avg_sort(array: list[int]) -> dict:
+    a_sum = sum(array) - array[0]
+    sorted_dict = {
+        'Lunge': array[1] / a_sum,
+        'Parry': array[2] / a_sum,
+        'Riposte': array[3] / a_sum,
+        'Thrust': array[4] / a_sum,
+        'Flèche': array[5] / a_sum,
+        'Fake': array[6] / a_sum,
+        'Dodge': array[7] / a_sum,
+        'Move': array[8] / a_sum,
+    }
+
+    return dict(sorted(sorted_dict.items(), key=lambda x:x[1], reverse=True))
+
+def rel_sort(array1: list[int], array2: list[int]) -> dict:
+    sorted_dict = {
+        'Lunge': array2[1] / array1[1] if array1[1] > 0 else 0,
+        'Parry': array2[2] / array1[2] if array1[2] > 0 else 0,
+        'Riposte': array2[3] / array1[3] if array1[3] > 0 else 0,
+        'Thrust': array2[4] / array1[4] if array1[4] > 0 else 0,
+        'Flèche': array2[5] / array1[5] if array1[5] > 0 else 0,
+        'Fake': array2[6] / array1[6] if array1[6] > 0 else 0,
+        'Dodge': array2[7] / array1[7] if array1[7] > 0 else 0,
+        'Move': array2[8] / array1[8] if array1[8] > 0 else 0,
+    }
+
+    return dict(sorted(sorted_dict.items(), key=lambda x:x[1], reverse=True))
+
+model_strs = ["trained_wder/fc_self_play/g070/agent2/checkpoint_epo50_eps099.pth", "trained_wder/fc_self_play/g070/agent1/checkpoint_epo50_eps099.pth"]
+
+ai_1 = LinearDQNAgent(1, 0.7)
+ai_2 = LinearDQNAgent(2, 0.7)
 
 ge = SimpleGE(ai_1, ai_2)
 # ge = DoubleGE(ai_1, ai_2, model_strs, 0.1)
 
+testing = False
 resume = 0
 games = 0 + resume
 wins = [0, 0]
 stop = False
 target_wins_100 = deque()
-total_games = 50000
+fs_chance_1, fs_chance_2 = 0, 0
+total_games = 5000
 # ge.ai_1.trainer.load("model/checkpoint_epo11_eps333.pth")
-# ge.ai_1.trainer.load("trained_wder/fc_self_play/g070/agent1/checkpoint_epo50_eps099.pth")
-# ge.ai_1.trainer.load("trained_wd/fc/checkpoint_epo50_eps100.pth")
+# ge.ai_1.trainer.load("trained_wder/fc_self_play/g090/agent1/checkpoint_epo50_eps099.pth")
+ge.ai_1.trainer.load("trained_wder/fc_self_play_br/g070_40s/agent1/checkpoint_epo50_eps099.pth")
+# ge.ai_1.trainer.load("trained_wder/rnn_self_play_dr/g070/agent2/checkpoint_epo50_eps099.pth")
+# ge.ai_1.trainer.load("trained_wder/fc/g070/checkpoint_epo50_eps099.pth")
 # ge.ai_1.trainer.load("trained_wd/fc_self_play_2nd/050/checkpoint_epo50_eps100.pth")
-# ge.ai_1.trainer.epsilon = 0
-# ge.ai_1.trainer.load("trained_wder/fc_self_play/g080/agent1/checkpoint_epo50_eps099.pth")
+ge.ai_1.trainer.epsilon = 0
+ge.ai_2.trainer.load("trained_wder/fc_self_play/g070/agent2/checkpoint_epo50_eps099.pth")
 # ge.ai_2.trainer.load("trained_wd/fc_self_play/agent1/checkpoint_epo50_eps100.pth")
 # ge.ai_2.trainer.load("trained/fc/checkpoint_epo50_eps010.pth")
-# ge.ai_2.trainer.epsilon = 0
+ge.ai_2.trainer.epsilon = 0
+
+testing = True
 
 while not stop:
-    winner, curr_score = ge.game_loop()
+    winner, curr_score, first_scores = ge.game_loop()
     if winner != 0:
         games += 1
         # if ge.ai_1.trainer.epsilon > 0.1:
@@ -492,17 +579,48 @@ while not stop:
         if games > 100 + resume:
             target_wins_100.popleft()
 
+        # calc first score stat
+        fs_chance_1 += first_scores[0] / curr_score[0] if curr_score[0] > 0 else 0
+        fs_chance_2 += first_scores[1] / curr_score[1] if curr_score[1] > 0 else 0
+
         # if (verbose):
         print(f"Games: {games} | Winner : AI {winner} | Score : {curr_score} | Wins: {wins} | WR in 100: {sum(target_wins_100) / 100} | Eps: {ge.ai_1.trainer.epsilon}")
         # print(ge.curr_agent_id)
-    if games % 1000 == 0:
-        ge.ai_1.trainer.save(1, games, 1000)
-        ge.ai_2.trainer.save(2, games, 1000)
-    if games > total_games:
+    # if games % 1000 == 0:
+    #     ge.ai_1.trainer.save(1, games, 1000)
+        # ge.ai_2.trainer.save(2, games, 1000)
+    if games >= total_games:
+        fs_chance_1 = fs_chance_1 / total_games
+        fs_chance_2 = fs_chance_2 / total_games
         print(f"Total Wins: {wins}")
-        print(f"AI 1 Move Freq: {ge.ai_1.move_freq}")
-        print(f"AI 2 Move Freq: {ge.ai_2.move_freq}")
-        
-        print(f"AI 1 Begin Freq: {ge.ai_1.begin_freq}")
-        print(f"AI 2 Begin Freq: {ge.ai_2.begin_freq}")
+        if testing:
+            print(f"AI 1 Move Freq: {ge.ai_1.move_freq}")
+            print(f"AI 2 Move Freq: {ge.ai_2.move_freq}")
+            
+            print(f"AI 1 Begin Freq: {ge.ai_1.begin_freq}")
+            print(f"AI 2 Begin Freq: {ge.ai_2.begin_freq}")
+
+            print(f"\nWinrate: {round((wins[0] / total_games) * 100, 1)}%\n")
+
+            print(f"AI 1 First Score Chance: {round(fs_chance_1 * 100, 1)}%")
+            print(f"AI 2 First Score Chance: {round(fs_chance_2 * 100, 1)}%\n")
+
+            mf1 = avg_sort(ge.ai_1.move_freq)
+            print(f"Most abused moves are:")
+            for (index, (key, value)) in enumerate(mf1.items()):
+                print(f"{index+1}. {key} ({round(value, 3)})")
+
+            print()
+
+            bf1 = avg_sort(ge.ai_1.begin_freq)
+            print(f"Most abused openers in general are:")
+            for (index, (key, value)) in enumerate(bf1.items()):
+                print(f"{index+1}. {key} ({round(value, 3)})")
+
+            print()
+
+            mbf1 = rel_sort(ge.ai_1.move_freq, ge.ai_1.begin_freq)
+            print(f"Most abused openers relative to its uses:")
+            for (index, (key, value)) in enumerate(mbf1.items()):
+                print(f"{index+1}. {key} ({round(value, 3)})")
         stop = True

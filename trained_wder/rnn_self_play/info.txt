@@ -1,0 +1,1 @@
+simple rnn self play like fc self play

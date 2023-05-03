@@ -1,0 +1,41 @@
+5000 games played as testing agent 2 against g070 no ir agent 1:
+Total Wins: [3045, 2053]
+AI 1 Move Freq: [6264, 57333, 28099, 3385, 53683, 55771, 27190, 53698, 208]
+AI 2 Move Freq: [2025, 56039, 81, 19412, 49599, 55945, 8622, 49343, 34884]
+AI 1 Begin Freq: [0, 8780, 6603, 2787, 19005, 26807, 9560, 29958, 163]
+AI 2 Begin Freq: [0, 15785, 53, 7758, 26989, 22240, 2198, 18048, 10592]
+
+Winrate: 60.9%
+
+AI 1 First Score Chance: 51.0%
+AI 2 First Score Chance: 52.0%
+
+Most abused moves are:
+1. Lunge (0.205)
+2. Flèche (0.2)
+3. Dodge (0.192)
+4. Thrust (0.192)
+5. Parry (0.101)
+6. Fake (0.097)
+7. Riposte (0.012)
+8. Move (0.001)
+
+Most abused openers in general are:
+1. Dodge (0.289)
+2. Flèche (0.259)
+3. Thrust (0.183)
+4. Fake (0.092)
+5. Lunge (0.085)
+6. Parry (0.064)
+7. Riposte (0.027)
+8. Move (0.002)
+
+Most abused openers relative to its uses:
+1. Riposte (0.823)
+2. Move (0.784)
+3. Dodge (0.558)
+4. Flèche (0.481)
+5. Thrust (0.354)
+6. Fake (0.352)
+7. Parry (0.235)
+8. Lunge (0.153)
